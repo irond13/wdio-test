@@ -85,7 +85,6 @@ export default class AllureFailingHookReporter extends WDIOReporter {
      */
     process.on('allure:runtimeMessage', (payload) => {
       if (!this.hasRealTestStarted && (this.inBeforeAll || this.inAfterAll)) {
-        console.log('[AllureFailingHookReporter] Buffering event:', payload.type)
         this.bufferedEvents.push({ message: payload, at: Date.now() })
       }
     })
@@ -226,9 +225,7 @@ export default class AllureFailingHookReporter extends WDIOReporter {
    * as if they happened in the current test/fixture context
    */
   private async flushBufferedEvents(): Promise<void> {
-    console.log(`[AllureFailingHookReporter] Flushing ${this.bufferedEvents.length} buffered events`)
     for (const ev of this.bufferedEvents) {
-      console.log(`[AllureFailingHookReporter] Re-emitting: ${ev.message.type}`)
       this.emitRuntimeMessage(ev.message.type, ev.message.data)
     }
   }
