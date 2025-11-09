@@ -99,7 +99,7 @@ export default class AllureFailingHookReporter extends WDIOReporter {
   }
 
   onHookStart(hook: unknown): void {
-    const h = hook as { title?: unknown; parent?: unknown }
+    const h = hook as { title?: unknown; parent?: unknown; start?: number }
     const title = typeof h?.title === 'string' ? h.title : ''
 
     // Extract suite name from hook title patterns:
@@ -136,13 +136,20 @@ export default class AllureFailingHookReporter extends WDIOReporter {
 
     /*
      * Success case: beforeAll/afterAll succeeded with buffered events
-     * Clear the buffer - steps from passing hooks aren't critical to preserve
      *
-     * Why not show steps in fixture?
-     * - Allure creates fixture entries in onHookEnd AFTER this runs
-     * - Can't inject into fixture that doesn't exist yet
-     * - Flushing here doesn't help - no active hook context to receive them
-     * - Acceptable trade-off: Failure case (critical) works perfectly
+     * Limitation: Cannot inject steps into passing fixtures with current approach
+     * Why:
+     * - @wdio/allure-reporter manages hooks via internal state (_hasPendingHook, _currentHook)
+     * - allure:hook:start/end events are OUTPUT only (for other reporters), not INPUT
+     * - Emitting these events doesn't prevent allure from creating its own fixture
+     * - Would need to monkey-patch allure reporter's _startHook method (too fragile)
+     *
+     * Current behavior:
+     * - Buffer is cleared
+     * - Default WDIO fixture shows hook passed (no steps)
+     * - Acceptable since passing hooks are less critical than failures
+     *
+     * Future improvement: Could explore WDIO reporter lifecycle hooks or custom allure adapter
      */
     if (!hadError && !this.hasRealTestStarted && this.bufferedEvents.length > 0 && (isBeforeAll || isAfterAll)) {
       this.clearBuffers()
@@ -157,13 +164,14 @@ export default class AllureFailingHookReporter extends WDIOReporter {
      */
     if (hadError && !this.hasRealTestStarted) {
       const isBefore = title.includes('"before all" hook')
-      const syntheticName = `${isBefore ? 'Global Setup' : 'Global Teardown'}: ${this.hookSuiteTitle || '(root)'} `
+      const hookType = isBefore ? 'beforeAll' : 'afterAll'
+      const syntheticName = `${this.hookSuiteTitle}: ${hookType} hook failure`
       const __ts = getBufferedMinMaxTimes(this.bufferedEvents)
 
       this.emitRuntimeMessage('allure:test:start', { name: syntheticName, start: __ts.start })
 
       // Labels help filter and organize synthetic entries in Allure UI
-      const tagValue = isBefore ? 'GlobalSetup' : 'GlobalTeardown'
+      const tagValue = isBefore ? 'BeforeAllFailure' : 'AfterAllFailure'
       const labels = [
         { name: 'tag', value: tagValue },
         { name: 'parentSuite', value: this.hookSuiteTitle }
