@@ -90,16 +90,29 @@ export default class AllureFailingHookReporter extends WDIOReporter {
   }
 
   async onTestStart(): Promise<void> {
-    // Mark that a real test has started (hooks are done)
+    /*
+     * Mark that a real test has started
+     * This signals that all beforeAll/afterAll hooks are done executing
+     * Used to distinguish between hook failures and test failures
+     */
     this.hasRealTestStarted = true
   }
 
   onHookStart(hook: unknown): void {
     const h = hook as { title?: unknown; parent?: unknown }
     const title = typeof h?.title === 'string' ? h.title : ''
-    const suiteTitle = typeof (h?.parent as { title?: unknown })?.title === 'string'
-      ? String((h?.parent as { title?: unknown })?.title)
-      : '(root)'
+
+    // Extract suite name from hook title patterns:
+    // "before all" hook for Suite Name → "Suite Name"
+    // "before all" hook in "{root}" → "(root)"
+    let suiteTitle = '(root)'
+    const forMatch = title.match(/hook for (.+)/)
+    const inMatch = title.match(/hook in "(.+)"/)
+    if (forMatch && forMatch[1]) {
+      suiteTitle = forMatch[1]
+    } else if (inMatch && inMatch[1]) {
+      suiteTitle = inMatch[1] === '{root}' ? '(root)' : inMatch[1]
+    }
 
     if (title.includes('"before all" hook')) {
       this.inBeforeAll = true
@@ -123,8 +136,13 @@ export default class AllureFailingHookReporter extends WDIOReporter {
 
     /*
      * Success case: beforeAll/afterAll succeeded with buffered events
-     * Clear the buffer since the steps aren't needed (hook passed, test will run normally)
-     * The default WDIO fixture shows the hook passed, which is sufficient
+     * Clear the buffer - steps from passing hooks aren't critical to preserve
+     *
+     * Why not show steps in fixture?
+     * - Allure creates fixture entries in onHookEnd AFTER this runs
+     * - Can't inject into fixture that doesn't exist yet
+     * - Flushing here doesn't help - no active hook context to receive them
+     * - Acceptable trade-off: Failure case (critical) works perfectly
      */
     if (!hadError && !this.hasRealTestStarted && this.bufferedEvents.length > 0 && (isBeforeAll || isAfterAll)) {
       this.clearBuffers()
@@ -144,9 +162,13 @@ export default class AllureFailingHookReporter extends WDIOReporter {
 
       this.emitRuntimeMessage('allure:test:start', { name: syntheticName, start: __ts.start })
 
-      // Labels help filter these synthetic entries in Allure UI
+      // Labels help filter and organize synthetic entries in Allure UI
       const tagValue = isBefore ? 'GlobalSetup' : 'GlobalTeardown'
-      this.emitRuntimeMessage('metadata', { labels: [{ name: 'tag', value: tagValue }] })
+      const labels = [
+        { name: 'tag', value: tagValue },
+        { name: 'parentSuite', value: this.hookSuiteTitle }
+      ]
+      this.emitRuntimeMessage('metadata', { labels })
 
       // Replay all buffered evidence (steps, screenshots) into the synthetic test
       await this.flushBufferedEvents()
