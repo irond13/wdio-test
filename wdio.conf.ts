@@ -28,6 +28,7 @@ export const config: WebdriverIO.Config = {
 
   reporters: [
     'spec',
+    [AllureFailingHookReporter, {}],
     [
       'allure',
       {
@@ -35,8 +36,7 @@ export const config: WebdriverIO.Config = {
         // disableWebdriverStepsReporting: false,
         disableWebdriverScreenshotsReporting: false
       }
-    ],
-    [AllureFailingHookReporter, {}]
+    ]
   ],
 
   tsConfigPath: './tsconfig.json'
