@@ -184,7 +184,15 @@ export default class AllureFailingHookReporter extends WDIOReporter {
     if (this.hasRealTestStarted) return
     if (!(this.inBeforeAll || this.inAfterAll)) return
     if (command?.command !== 'takeScreenshot') return
-    const base64 = typeof command.result === 'string' ? command.result : undefined
+
+    // Extract base64 from WDIO's result format: {value: "base64string"}
+    const result = command.result as { value?: string } | string | undefined
+    const base64 = typeof result === 'string'
+      ? result
+      : typeof result === 'object' && result !== null && typeof result.value === 'string'
+        ? result.value
+        : undefined
+
     if (!base64) return
 
     /*
