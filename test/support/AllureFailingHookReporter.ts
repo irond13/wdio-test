@@ -65,7 +65,6 @@ export default class AllureFailingHookReporter extends WDIOReporter {
   private hookSuiteTitle = ''
 
   private bufferedEvents: BufferedEvent[] = []
-  private flushedToFirstTest = false
 
   constructor(options: Partial<Reporters.Options>) {
     super(options)
@@ -91,39 +90,7 @@ export default class AllureFailingHookReporter extends WDIOReporter {
   }
 
   async onTestStart(): Promise<void> {
-    if (this.hasRealTestStarted || this.flushedToFirstTest) {
-      this.hasRealTestStarted = true
-      return
-    }
-    /*
-     * Success case: beforeAll succeeded and we have buffered events
-     * Create a "fixture" (hook) entry attached to the first real test
-     * This shows the setup work without inflating test counts
-     */
-    if (this.bufferedEvents.length > 0 && !this.inBeforeAll && !this.inAfterAll) {
-      const name = `Global Setup (beforeAll): ${this.hookSuiteTitle || '(root)'} `
-      const __t1 = getBufferedMinMaxTimes(this.bufferedEvents)
-
-      this.emitRuntimeMessage('allure:hook:start', { name, type: 'before', start: __t1.start })
-
-      // Add labels for discoverability in Allure UI
-      this.emitRuntimeMessage('metadata', {
-        labels: [
-          { name: 'tag', value: 'GlobalSetup' },
-          { name: 'parentSuite', value: this.hookSuiteTitle || '(root)' },
-          { name: 'suite', value: 'Global Setup' },
-          { name: 'subSuite', value: 'beforeAll' }
-        ]
-      })
-
-      // Replay all buffered steps, screenshots, and attachments
-      await this.flushBufferedEvents()
-
-      const __t2 = getBufferedMinMaxTimes(this.bufferedEvents)
-      this.emitRuntimeMessage('allure:hook:end', { status: Status.PASSED, stop: __t2.stop })
-      this.clearBuffers()
-      this.flushedToFirstTest = true
-    }
+    // Mark that a real test has started (hooks are done)
     this.hasRealTestStarted = true
   }
 
@@ -133,6 +100,7 @@ export default class AllureFailingHookReporter extends WDIOReporter {
     const suiteTitle = typeof (h?.parent as { title?: unknown })?.title === 'string'
       ? String((h?.parent as { title?: unknown })?.title)
       : '(root)'
+
     if (title.includes('"before all" hook')) {
       this.inBeforeAll = true
       this.hookSuiteTitle = suiteTitle
@@ -144,11 +112,24 @@ export default class AllureFailingHookReporter extends WDIOReporter {
 
   async onHookEnd(hook: unknown): Promise<void> {
     const h = hook as { title?: unknown; error?: unknown;
-      parent?: unknown }
+      parent?: unknown; start?: number; end?: number }
     const title = typeof h?.title === 'string' ? h.title : ''
     const hadError = !!h?.error
-    if (title.includes('"before all" hook')) this.inBeforeAll = false
-    if (title.includes('"after all" hook')) this.inAfterAll = false
+    const isBeforeAll = title.includes('"before all" hook')
+    const isAfterAll = title.includes('"after all" hook')
+
+    if (isBeforeAll) this.inBeforeAll = false
+    if (isAfterAll) this.inAfterAll = false
+
+    /*
+     * Success case: beforeAll/afterAll succeeded with buffered events
+     * Clear the buffer since the steps aren't needed (hook passed, test will run normally)
+     * The default WDIO fixture shows the hook passed, which is sufficient
+     */
+    if (!hadError && !this.hasRealTestStarted && this.bufferedEvents.length > 0 && (isBeforeAll || isAfterAll)) {
+      this.clearBuffers()
+      return
+    }
 
     /*
      * Failure case: beforeAll/afterAll failed before any test started
