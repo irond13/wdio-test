@@ -121,11 +121,8 @@ export default class AllureFailingHookReporter extends WDIOReporter {
       this.inBeforeAll = true
       this.hookSuiteTitle = suiteTitle
 
-      // Start capturing hook console output by wrapping allure's stdout wrapper
-      if (!this.hasRealTestStarted) {
-        this.hookConsoleOutput = ''
-        this.wrapStdout()
-      }
+      // Install wrapper once (it stays active and accumulates across all hooks)
+      this.wrapStdout()
     } else if (title.includes('"after all" hook')) {
       this.inAfterAll = true
       this.hookSuiteTitle = suiteTitle
