@@ -1,0 +1,10 @@
+.........Hook Console Logs.........
+
+[SUITE] Suite setup executing
+2025-11-10T03:23:44.088Z INFO devtools: COMMAND getTitle()
+2025-11-10T03:23:44.089Z INFO devtools: RESULT Example Domain
+[SUITE] Page title: Example Domain
+[SUITE] Taking screenshot before failure
+2025-11-10T03:23:44.089Z INFO devtools: COMMAND takeScreenshot()
+2025-11-10T03:23:44.138Z INFO devtools: RESULT iVBORw0KGgoAAAANSUhEUgAACWAAAAXyCAIAAAAUIUYFAAABLGlDQ1BfAAB4n...
+[SUITE] About to fail

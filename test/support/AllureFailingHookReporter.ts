@@ -65,9 +65,14 @@ export default class AllureFailingHookReporter extends WDIOReporter {
   private hookSuiteTitle = ''
 
   private bufferedEvents: BufferedEvent[] = []
+  private hookConsoleOutput = '' // Capture console output during hooks
+  private originalStdoutWrite: typeof process.stdout.write
 
   constructor(options: Partial<Reporters.Options>) {
     super(options)
+
+    // Save original stdout.write
+    this.originalStdoutWrite = process.stdout.write.bind(process.stdout)
 
     /*
      * Listen for all Allure runtime messages during hook execution
@@ -117,10 +122,34 @@ export default class AllureFailingHookReporter extends WDIOReporter {
     if (title.includes('"before all" hook')) {
       this.inBeforeAll = true
       this.hookSuiteTitle = suiteTitle
+
+      // Start capturing console output during this hook
+      if (!this.hasRealTestStarted) {
+        this.hookConsoleOutput = ''
+        this.interceptStdout()
+      }
     } else if (title.includes('"after all" hook')) {
       this.inAfterAll = true
       this.hookSuiteTitle = suiteTitle
     }
+  }
+
+  private interceptStdout(): void {
+    const self = this
+    process.stdout.write = function(chunk: any, encoding?: any, cb?: any): boolean {
+      const str = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8')
+      // Capture to our buffer
+      self.hookConsoleOutput += str
+      // Also write to original stdout
+      if (typeof encoding === 'function') {
+        return self.originalStdoutWrite(chunk, undefined, encoding)
+      }
+      return self.originalStdoutWrite(chunk, encoding, cb)
+    }
+  }
+
+  private restoreStdout(): void {
+    process.stdout.write = this.originalStdoutWrite
   }
 
   async onHookEnd(hook: unknown): Promise<void> {
@@ -131,25 +160,24 @@ export default class AllureFailingHookReporter extends WDIOReporter {
     const isBeforeAll = title.includes('"before all" hook')
     const isAfterAll = title.includes('"after all" hook')
 
+    // Restore stdout if we were capturing
+    if ((isBeforeAll || isAfterAll) && !this.hasRealTestStarted) {
+      this.restoreStdout()
+    }
+
     if (isBeforeAll) this.inBeforeAll = false
     if (isAfterAll) this.inAfterAll = false
 
     /*
-     * Success case: beforeAll/afterAll succeeded
-     * Clear our buffer - we don't need it
-     * The @wdio/allure-reporter has its OWN internal buffering that automatically
-     * captures and replays steps into fixtures when hooks pass
-     * Our custom buffering is ONLY needed for the failure case
-     */
-    /*
      * Success case: Hook passed
      * Clear our buffer - allure reporter's own buffering already captured the steps
-     * With the findLastIndex patch, allure now correctly attaches steps to fixtures
+     * Hook console logs won't be in test attachment (limitation of addConsoleLogs)
      */
     if (!hadError) {
       if (this.bufferedEvents.length > 0) {
         this.clearBuffers()
       }
+      this.hookConsoleOutput = ''
       return
     }
 
@@ -178,6 +206,16 @@ export default class AllureFailingHookReporter extends WDIOReporter {
       // Replay all buffered evidence (steps, screenshots) into the synthetic test
       await this.flushBufferedEvents()
 
+      // Attach console logs from the hook if we captured any
+      if (this.hookConsoleOutput) {
+        this.emitRuntimeMessage('attachment_content', {
+          name: 'Hook Console Logs',
+          content: Buffer.from(`.........Hook Console Logs.........\n\n${this.hookConsoleOutput}`).toString('base64'),
+          encoding: 'base64',
+          contentType: 'text/plain'
+        })
+      }
+
       this.emitRuntimeMessage('allure:test:end', {
         status: Status.BROKEN,
         stage: Stage.FINISHED,
@@ -185,6 +223,7 @@ export default class AllureFailingHookReporter extends WDIOReporter {
         stop: __ts.stop
       })
       this.clearBuffers()
+      this.hookConsoleOutput = ''
     }
   }
 
