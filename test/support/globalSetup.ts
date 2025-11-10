@@ -20,7 +20,7 @@ export const mochaHooks = {
 
     console.log('[GLOBAL MOCHA] Global Mocha hook completed')
 
-    // Test: Does error in global Mocha hook stop ALL tests?
+    // Uncomment to test global hook failure killing ALL tests:
     // throw new Error('Global Mocha hook failure - should kill ALL tests!')
   }
 }
