@@ -1,0 +1,21 @@
+.........Console Logs.........
+
+
+========== Setup Hooks Console Output ==========
+[GLOBAL MOCHA ROOT HOOK] Starting global setup
+[GLOBAL MOCHA] Executing global Mocha hook step 1
+2025-11-10T06:31:37.521Z INFO devtools: COMMAND navigateTo("https://example.org/")
+2025-11-10T06:31:37.841Z INFO devtools: RESULT null
+[GLOBAL MOCHA] Taking global Mocha screenshot
+2025-11-10T06:31:37.850Z INFO devtools: COMMAND takeScreenshot()
+2025-11-10T06:31:37.922Z INFO devtools: RESULT iVBORw0KGgoAAAANSUhEUgAACWAAAAXyCAIAAAAUIUYFAAABLGlDQ1BfAAB4n...
+[GLOBAL MOCHA] Global Mocha hook completed
+=================================================
+
+[RETRY DEMO] Attempt #1
+2025-11-10T06:31:37.925Z INFO devtools: COMMAND navigateTo("https://example.org/")
+2025-11-10T06:31:37.956Z INFO devtools: RESULT null
+2025-11-10T06:31:37.957Z INFO devtools: COMMAND getTitle()
+2025-11-10T06:31:37.958Z INFO devtools: RESULT Example Domain
+[RETRY DEMO] Page title: Example Domain
+[RETRY DEMO] Intentionally failing first attempt
