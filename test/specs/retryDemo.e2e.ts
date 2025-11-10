@@ -1,5 +1,5 @@
 import { browser } from '@wdio/globals'
-import { isDebugMode, debugLog } from '../support/debugMode'
+import { debug, isDebugLogging } from '../support/debugLogger'
 
 describe('Retry Demo', () => {
   let attemptCount = 0
@@ -10,31 +10,33 @@ describe('Retry Demo', () => {
 
     console.log(`[RETRY DEMO] Attempt #${attemptCount}`)
 
-    // Check if debug mode is enabled (set by retry hook after failure)
-    if (isDebugMode) {
-      console.log('[RETRY DEMO] ⚡ DEBUG MODE ENABLED - Enhanced logging active')
+    // Check if debug stream is enabled (after first failure)
+    if (isDebugLogging()) {
+      console.log('[RETRY DEMO] ⚡ DEBUG STREAM ACTIVE')
     }
 
     await browser.url('https://example.org')
 
-    // Debug-only logging
-    debugLog('Navigated to example.org')
-    debugLog('Window size:', await browser.getWindowSize())
+    // Debug logging - always called, but output goes to /dev/null or stdout
+    debug('Navigated to example.org')
+    debug('Window size:', await browser.getWindowSize())
 
     const title = await browser.getTitle()
     console.log(`[RETRY DEMO] Page title: ${title}`)
 
-    // More debug logging
-    debugLog('Document ready state:', await browser.execute(() => document.readyState))
-    debugLog('Current URL:', await browser.getUrl())
+    // More debug logging - always executed
+    debug('Document ready state:', await browser.execute(() => document.readyState))
+    debug('Current URL:', await browser.getUrl())
+    debug('Viewport:', await browser.getWindowSize())
 
     // Fail on first attempt, pass on second
     if (attemptCount === 1) {
+      debug('About to fail on first attempt')
       console.log('[RETRY DEMO] Intentionally failing first attempt')
-      throw new Error('Intentional failure to demonstrate retry with debug mode')
+      throw new Error('Intentional failure to demonstrate retry with debug stream')
     }
 
     console.log('[RETRY DEMO] Success on retry!')
-    debugLog('Test completed successfully with debug info')
+    debug('Test completed successfully')
   })
 })
