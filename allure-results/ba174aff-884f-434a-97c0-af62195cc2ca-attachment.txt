@@ -1,0 +1,17 @@
+.........Console Logs.........
+
+
+========== Setup Hooks Console Output ==========
+[SUITE-LEVEL] Suite setup executing
+2025-11-10T05:26:16.721Z INFO devtools: COMMAND getTitle()
+2025-11-10T05:26:16.722Z INFO devtools: RESULT Example Domain
+[SUITE-LEVEL] Page title: Example Domain
+[SUITE-LEVEL] Taking suite screenshot
+2025-11-10T05:26:16.722Z INFO devtools: COMMAND takeScreenshot()
+2025-11-10T05:26:16.769Z INFO devtools: RESULT iVBORw0KGgoAAAANSUhEUgAACWAAAAXyCAIAAAAUIUYFAAABLGlDQ1BfAAB4n...
+=================================================
+
+[TEST] Test executing after all hooks passed
+2025-11-10T05:26:16.771Z INFO devtools: COMMAND getTitle()
+2025-11-10T05:26:16.772Z INFO devtools: RESULT Example Domain
+[TEST] Verified title: Example Domain

@@ -67,6 +67,7 @@ export default class AllureFailingHookReporter extends WDIOReporter {
   private bufferedEvents: BufferedEvent[] = []
   private hookConsoleOutput = ''
   private allureStdoutWrapper: typeof process.stdout.write | null = null
+  private hookLogsPrepended = false
 
   constructor(options: Partial<Reporters.Options>) {
     super(options)
@@ -94,8 +95,8 @@ export default class AllureFailingHookReporter extends WDIOReporter {
   async onTestStart(): Promise<void> {
     /*
      * Mark that a real test has started
-     * This signals that all beforeAll/afterAll hooks are done executing
-     * Used to distinguish between hook failures and test failures
+     * Hook console logs will be prepended automatically by the wrapper
+     * when it sees the first test output
      */
     this.hasRealTestStarted = true
   }
@@ -132,35 +133,45 @@ export default class AllureFailingHookReporter extends WDIOReporter {
   }
 
   private wrapStdout(): void {
+    // Only wrap once
+    if (this.allureStdoutWrapper) return
+
     // Save allure's wrapper (which is currently active)
     this.allureStdoutWrapper = process.stdout.write
 
     const self = this
-    // Replace with our wrapper that calls allure's
+    // Replace with our wrapper that ALWAYS calls through to allure
     process.stdout.write = function(chunk: any, encoding?: any, cb?: any): boolean {
       const str = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8')
 
-      // Capture to our buffer
-      self.hookConsoleOutput += str
+      // Capture during hooks
+      if (self.inBeforeAll || self.inAfterAll) {
+        self.hookConsoleOutput += str
+      }
 
-      // Call allure's wrapper (so allure still captures)
+      // Prepend hook logs when we see the FIRST test log (after hooks complete)
+      if (self.hasRealTestStarted && !self.hookLogsPrepended && self.hookConsoleOutput.trim() && !str.includes('[DEBUG]')) {
+        self.hookLogsPrepended = true
+        // Emit hook logs FIRST
+        if (self.allureStdoutWrapper) {
+          self.allureStdoutWrapper('\n========== Setup Hooks Console Output ==========\n', undefined, undefined)
+          self.allureStdoutWrapper(self.hookConsoleOutput, undefined, undefined)
+          self.allureStdoutWrapper('=================================================\n\n', undefined, undefined)
+        }
+        self.hookConsoleOutput = ''
+      }
+
+      // ALWAYS call allure's wrapper
       if (self.allureStdoutWrapper) {
         if (typeof encoding === 'function') {
-          return self.allureStdoutWrapper.call(this, chunk, undefined, encoding)
+          return self.allureStdoutWrapper.call(process.stdout, chunk, undefined, encoding)
         }
-        return self.allureStdoutWrapper.call(this, chunk, encoding, cb)
+        return self.allureStdoutWrapper.call(process.stdout, chunk, encoding, cb)
       }
       return true
     }
   }
 
-  private unwrapStdout(): void {
-    // Restore allure's wrapper
-    if (this.allureStdoutWrapper) {
-      process.stdout.write = this.allureStdoutWrapper
-      this.allureStdoutWrapper = null
-    }
-  }
 
   async onHookEnd(hook: unknown): Promise<void> {
     const h = hook as { title?: unknown; error?: unknown;
@@ -170,23 +181,21 @@ export default class AllureFailingHookReporter extends WDIOReporter {
     const isBeforeAll = title.includes('"before all" hook')
     const isAfterAll = title.includes('"after all" hook')
 
-    // Unwrap stdout if we wrapped it
-    if ((isBeforeAll || isAfterAll) && !this.hasRealTestStarted) {
-      this.unwrapStdout()
-    }
+    // Don't unwrap - keep wrapper active to capture all future hooks too
+    // We only capture when inBeforeAll/inAfterAll flags are true
 
     if (isBeforeAll) this.inBeforeAll = false
     if (isAfterAll) this.inAfterAll = false
 
     /*
      * Success case: Hook passed
-     * Clear our buffers - allure reporter handles steps and console logs naturally
+     * Clear event buffer but KEEP hook console output for prepending in onTestStart
      */
     if (!hadError) {
       if (this.bufferedEvents.length > 0) {
         this.clearBuffers()
       }
-      this.hookConsoleOutput = ''
+      // DON'T clear hookConsoleOutput - we'll prepend it to test console logs
       return
     }
 
