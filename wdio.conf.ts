@@ -2,7 +2,16 @@ import AllureFailingHookReporter from './test/support/AllureFailingHookReporter'
 
 export const config: WebdriverIO.Config = {
   runner: 'local',
-  specs: ['./test/specs/**/*.ts'],
+  specs: [
+    './test/specs/example.e2e.ts',
+    './test/specs/debugPassingHook.e2e.ts',
+    // Nested array: these 2 specs run in same worker
+    ['./test/specs/multiSpecSameWorker.e2e.ts', './test/specs/multiSpecSameWorker2.e2e.ts'],
+    './test/specs/failingHook.e2e.ts',
+    './test/specs/failingHookScreenshots.e2e.ts',
+    './test/specs/failingHookStep.e2e.ts',
+    './test/specs/failingRootHook.e2e.ts'
+  ],
   exclude: [],
   maxInstances: 1,
   capabilities: [

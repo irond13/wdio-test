@@ -84,6 +84,7 @@ export default class AllureFailingHookReporter extends WDIOReporter {
      */
     process.on('allure:runtimeMessage', (payload) => {
       if (!this.hasRealTestStarted && (this.inBeforeAll || this.inAfterAll)) {
+        console.log('[AllureFailingHookReporter] Buffering:', payload.type)
         this.bufferedEvents.push({ message: payload, at: Date.now() })
       }
     })
@@ -152,6 +153,8 @@ export default class AllureFailingHookReporter extends WDIOReporter {
      * Future improvement: Could explore WDIO reporter lifecycle hooks or custom allure adapter
      */
     if (!hadError && !this.hasRealTestStarted && this.bufferedEvents.length > 0 && (isBeforeAll || isAfterAll)) {
+      console.log('[AllureFailingHookReporter] SUCCESS case: Flushing', this.bufferedEvents.length, 'events')
+      await this.flushBufferedEvents()
       this.clearBuffers()
       return
     }
