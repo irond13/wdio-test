@@ -65,6 +65,8 @@ export default class AllureFailingHookReporter extends WDIOReporter {
   private hookSuiteTitle = ''
 
   private bufferedEvents: BufferedEvent[] = []
+  private hookConsoleOutput = ''
+  private allureStdoutWrapper: typeof process.stdout.write | null = null
 
   constructor(options: Partial<Reporters.Options>) {
     super(options)
@@ -117,9 +119,46 @@ export default class AllureFailingHookReporter extends WDIOReporter {
     if (title.includes('"before all" hook')) {
       this.inBeforeAll = true
       this.hookSuiteTitle = suiteTitle
+
+      // Start capturing hook console output by wrapping allure's stdout wrapper
+      if (!this.hasRealTestStarted) {
+        this.hookConsoleOutput = ''
+        this.wrapStdout()
+      }
     } else if (title.includes('"after all" hook')) {
       this.inAfterAll = true
       this.hookSuiteTitle = suiteTitle
+    }
+  }
+
+  private wrapStdout(): void {
+    // Save allure's wrapper (which is currently active)
+    this.allureStdoutWrapper = process.stdout.write
+
+    const self = this
+    // Replace with our wrapper that calls allure's
+    process.stdout.write = function(chunk: any, encoding?: any, cb?: any): boolean {
+      const str = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8')
+
+      // Capture to our buffer
+      self.hookConsoleOutput += str
+
+      // Call allure's wrapper (so allure still captures)
+      if (self.allureStdoutWrapper) {
+        if (typeof encoding === 'function') {
+          return self.allureStdoutWrapper.call(this, chunk, undefined, encoding)
+        }
+        return self.allureStdoutWrapper.call(this, chunk, encoding, cb)
+      }
+      return true
+    }
+  }
+
+  private unwrapStdout(): void {
+    // Restore allure's wrapper
+    if (this.allureStdoutWrapper) {
+      process.stdout.write = this.allureStdoutWrapper
+      this.allureStdoutWrapper = null
     }
   }
 
@@ -131,25 +170,23 @@ export default class AllureFailingHookReporter extends WDIOReporter {
     const isBeforeAll = title.includes('"before all" hook')
     const isAfterAll = title.includes('"after all" hook')
 
+    // Unwrap stdout if we wrapped it
+    if ((isBeforeAll || isAfterAll) && !this.hasRealTestStarted) {
+      this.unwrapStdout()
+    }
+
     if (isBeforeAll) this.inBeforeAll = false
     if (isAfterAll) this.inAfterAll = false
 
     /*
-     * Success case: beforeAll/afterAll succeeded
-     * Clear our buffer - we don't need it
-     * The @wdio/allure-reporter has its OWN internal buffering that automatically
-     * captures and replays steps into fixtures when hooks pass
-     * Our custom buffering is ONLY needed for the failure case
-     */
-    /*
      * Success case: Hook passed
-     * Clear our buffer - allure reporter's own buffering already captured the steps
-     * With the findLastIndex patch, allure now correctly attaches steps to fixtures
+     * Clear our buffers - allure reporter handles steps and console logs naturally
      */
     if (!hadError) {
       if (this.bufferedEvents.length > 0) {
         this.clearBuffers()
       }
+      this.hookConsoleOutput = ''
       return
     }
 
@@ -178,6 +215,16 @@ export default class AllureFailingHookReporter extends WDIOReporter {
       // Replay all buffered evidence (steps, screenshots) into the synthetic test
       await this.flushBufferedEvents()
 
+      // Attach hook console logs if we captured any
+      if (this.hookConsoleOutput.trim()) {
+        this.emitRuntimeMessage('attachment_content', {
+          name: 'Hook Console Logs',
+          content: Buffer.from(`.........Hook Console Logs.........\n\n${this.hookConsoleOutput}`).toString('base64'),
+          encoding: 'base64',
+          contentType: 'text/plain'
+        })
+      }
+
       this.emitRuntimeMessage('allure:test:end', {
         status: Status.BROKEN,
         stage: Stage.FINISHED,
@@ -185,6 +232,7 @@ export default class AllureFailingHookReporter extends WDIOReporter {
         stop: __ts.stop
       })
       this.clearBuffers()
+      this.hookConsoleOutput = ''
     }
   }
 
