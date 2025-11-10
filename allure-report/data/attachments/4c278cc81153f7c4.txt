@@ -1,9 +1,0 @@
-.........Hook Console Logs.........
-
-[SPEC] Spec setup executing
-2025-11-10T05:27:51.954Z INFO devtools: COMMAND navigateTo("https://example.org/")
-2025-11-10T05:27:51.981Z INFO devtools: RESULT null
-[SPEC] Taking screenshot before failure
-2025-11-10T05:27:51.982Z INFO devtools: COMMAND takeScreenshot()
-2025-11-10T05:27:52.029Z INFO devtools: RESULT iVBORw0KGgoAAAANSUhEUgAACWAAAAXyCAIAAAAUIUYFAAABLGlDQ1BfAAB4n...
-[SPEC] About to fail
