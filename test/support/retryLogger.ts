@@ -4,14 +4,24 @@
 // Note: Using @wdio/logger causes chalk import issues in some setups
 // For now, just log retry status - log level changing can be added per-test if needed
 
+// Mocha context type
+interface MochaContext {
+  currentTest?: {
+    title: string
+    state?: 'passed' | 'failed'
+    _currentRetry?: number
+    _retries?: number
+  }
+}
+
 export const mochaHooks = {
-  afterEach: function() {
+  afterEach: function(this: MochaContext) {
     // Access Mocha's test context
     const test = this.currentTest
     if (!test) return
 
-    const currentRetry = (test as any)._currentRetry || 0
-    const maxRetries = (test as any)._retries || 0
+    const currentRetry = test._currentRetry || 0
+    const maxRetries = test._retries || 0
     const passed = test.state === 'passed'
 
     if (!passed && currentRetry < maxRetries) {
