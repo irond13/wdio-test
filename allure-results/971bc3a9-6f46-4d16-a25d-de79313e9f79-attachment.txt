@@ -1,0 +1,28 @@
+.........Console Logs.........
+
+
+========== Setup Hooks Console Output ==========
+[GLOBAL MOCHA ROOT HOOK] Starting global setup
+[GLOBAL MOCHA] Executing global Mocha hook step 1
+2025-11-10T06:15:35.364Z INFO devtools: COMMAND navigateTo("https://example.org/")
+2025-11-10T06:15:35.479Z INFO devtools: RESULT null
+[GLOBAL MOCHA] Taking global Mocha screenshot
+2025-11-10T06:15:35.483Z INFO devtools: COMMAND takeScreenshot()
+2025-11-10T06:15:35.544Z INFO devtools: RESULT iVBORw0KGgoAAAANSUhEUgAACWAAAAXyCAIAAAAUIUYFAAABLGlDQ1BfAAB4n...
+[GLOBAL MOCHA] Global Mocha hook completed
+=================================================
+
+[RETRY DEMO] Attempt #1
+2025-11-10T06:15:35.547Z INFO devtools: COMMAND navigateTo("https://example.org/")
+2025-11-10T06:15:35.572Z INFO devtools: RESULT null
+2025-11-10T06:15:35.573Z INFO devtools: COMMAND getTitle()
+2025-11-10T06:15:35.573Z INFO devtools: RESULT Example Domain
+[RETRY DEMO] Page title: Example Domain
+[RETRY DEMO] Intentionally failing first attempt
+
+======================================================================
+[RETRY 1/3] Test "fails first time, passes on retry" FAILED
+[RETRY] Switching to DEBUG log level for next attempt
+[RETRY] Enhanced WDIO command logging will be captured
+======================================================================
+
