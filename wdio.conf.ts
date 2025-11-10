@@ -28,11 +28,29 @@ export const config: WebdriverIO.Config = {
   framework: 'mocha',
   mochaOpts: {
     ui: 'bdd',
-    timeout: 60000
+    timeout: 60000,
+    require: ['./test/support/globalSetup.js']
   },
 
-  // Note: True global hooks via mochaOpts.require don't work well with WDIO's async setup
-  // Using spec-level root hooks instead to demonstrate the behavior
+  /**
+   * WDIO Hook: Runs once per worker before any tests
+   * This is the true "global" hook that affects all specs in the worker
+   */
+  before: async function() {
+    const { step } = await import('allure-js-commons')
+
+    await step('Global worker setup step 1', async () => {
+      console.log('[GLOBAL WORKER HOOK] Navigating to example.org')
+      await browser.url('https://example.org')
+    })
+
+    await step('Global worker setup step 2: screenshot', async () => {
+      console.log('[GLOBAL WORKER HOOK] Taking global screenshot')
+      await browser.takeScreenshot()
+    })
+
+    console.log('[GLOBAL WORKER HOOK] Global setup completed')
+  },
 
   reporters: [
     'spec',
