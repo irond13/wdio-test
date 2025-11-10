@@ -3,14 +3,10 @@ import AllureFailingHookReporter from './test/support/AllureFailingHookReporter'
 export const config: WebdriverIO.Config = {
   runner: 'local',
   specs: [
-    './test/specs/example.e2e.ts',
-    './test/specs/debugPassingHook.e2e.ts',
-    // Nested array: these 2 specs run in same worker
-    ['./test/specs/multiSpecSameWorker.e2e.ts', './test/specs/multiSpecSameWorker2.e2e.ts'],
-    './test/specs/failingHook.e2e.ts',
-    './test/specs/failingHookScreenshots.e2e.ts',
-    './test/specs/failingHookStep.e2e.ts',
-    './test/specs/failingRootHook.e2e.ts'
+    './test/specs/scenario1-allPass.e2e.ts',
+    // './test/specs/scenario2-globalFails.e2e.ts',  // Uncomment to test global failure
+    './test/specs/scenario3-specFails.e2e.ts',
+    './test/specs/scenario4-suiteFails.e2e.ts'
   ],
   exclude: [],
   maxInstances: 1,
@@ -35,6 +31,9 @@ export const config: WebdriverIO.Config = {
     timeout: 60000
   },
 
+  // Note: True global hooks via mochaOpts.require don't work well with WDIO's async setup
+  // Using spec-level root hooks instead to demonstrate the behavior
+
   reporters: [
     'spec',
     [AllureFailingHookReporter, {}],
@@ -43,7 +42,8 @@ export const config: WebdriverIO.Config = {
       {
         outputDir: 'allure-results',
         // disableWebdriverStepsReporting: false,
-        disableWebdriverScreenshotsReporting: false
+        disableWebdriverScreenshotsReporting: false,
+        addConsoleLogs: true
       }
     ]
   ],
