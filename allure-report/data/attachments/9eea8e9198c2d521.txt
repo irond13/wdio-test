@@ -1,6 +1,0 @@
-.........Console Logs.........
-
-[TEST] Test executing after all hooks passed
-2025-11-10T01:58:15.479Z INFO devtools: COMMAND getTitle()
-2025-11-10T01:58:15.481Z INFO devtools: RESULT Example Domain
-[TEST] Verified title: Example Domain

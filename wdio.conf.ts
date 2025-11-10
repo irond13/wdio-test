@@ -28,10 +28,8 @@ export const config: WebdriverIO.Config = {
   framework: 'mocha',
   mochaOpts: {
     ui: 'bdd',
-    timeout: 60000
-    // Note: mochaOpts.require for global hooks doesn't work well with WDIO's async initialization
-    // Mocha globals (before/after) aren't available when require files execute
-    // Alternative: Use WDIO's before/after hooks (below) or spec-level root hooks
+    timeout: 60000,
+    require: ['./test/support/globalSetup.ts']
   },
 
   // WDIO before/after hooks: Not recommended for critical setup
