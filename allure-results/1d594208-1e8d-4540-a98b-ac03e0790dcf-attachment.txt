@@ -1,0 +1,9 @@
+.........Console Logs.........
+
+[RETRY DEMO] Attempt #2
+2025-11-10T07:22:31.793Z INFO devtools: COMMAND navigateTo("https://example.org/")
+2025-11-10T07:22:31.819Z INFO devtools: RESULT null
+2025-11-10T07:22:31.819Z INFO devtools: COMMAND getTitle()
+2025-11-10T07:22:31.820Z INFO devtools: RESULT Example Domain
+[RETRY DEMO] Page title: Example Domain
+[RETRY DEMO] Success on retry!
