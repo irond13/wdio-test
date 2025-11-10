@@ -1,0 +1,31 @@
+.........Console Logs.........
+
+
+========== Setup Hooks Console Output ==========
+[GLOBAL MOCHA ROOT HOOK] Starting global setup
+[GLOBAL MOCHA] Executing global Mocha hook step 1
+2025-11-10T07:38:43.729Z INFO devtools: COMMAND navigateTo("https://example.org/")
+2025-11-10T07:38:44.012Z INFO devtools: RESULT null
+[GLOBAL MOCHA] Taking global Mocha screenshot
+2025-11-10T07:38:44.014Z INFO devtools: COMMAND takeScreenshot()
+2025-11-10T07:38:44.087Z INFO devtools: RESULT iVBORw0KGgoAAAANSUhEUgAACWAAAAXyCAIAAAAUIUYFAAABLGlDQ1BfAAB4n...
+[GLOBAL MOCHA] Global Mocha hook completed
+[SPEC-LEVEL] Spec setup executing
+2025-11-10T07:38:44.089Z INFO devtools: COMMAND navigateTo("https://example.org/")
+2025-11-10T07:38:44.124Z INFO devtools: RESULT null
+[SPEC-LEVEL] Taking spec screenshot
+2025-11-10T07:38:44.124Z INFO devtools: COMMAND takeScreenshot()
+2025-11-10T07:38:44.170Z INFO devtools: RESULT iVBORw0KGgoAAAANSUhEUgAACWAAAAXyCAIAAAAUIUYFAAABLGlDQ1BfAAB4n...
+[SUITE-LEVEL] Suite setup executing
+2025-11-10T07:38:44.172Z INFO devtools: COMMAND getTitle()
+2025-11-10T07:38:44.172Z INFO devtools: RESULT Example Domain
+[SUITE-LEVEL] Page title: Example Domain
+[SUITE-LEVEL] Taking suite screenshot
+2025-11-10T07:38:44.173Z INFO devtools: COMMAND takeScreenshot()
+2025-11-10T07:38:44.230Z INFO devtools: RESULT iVBORw0KGgoAAAANSUhEUgAACWAAAAXyCAIAAAAUIUYFAAABLGlDQ1BfAAB4n...
+=================================================
+
+[TEST] Test executing after all hooks passed
+2025-11-10T07:38:44.233Z INFO devtools: COMMAND getTitle()
+2025-11-10T07:38:44.234Z INFO devtools: RESULT Example Domain
+[TEST] Verified title: Example Domain

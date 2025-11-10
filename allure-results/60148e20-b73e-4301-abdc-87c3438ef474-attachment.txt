@@ -1,0 +1,25 @@
+.........Console Logs.........
+
+[RETRY DEMO] Attempt #3
+[RETRY DEMO] ⚡ DEBUG MODE ENABLED - Enhanced logging active
+2025-11-10T07:38:42.534Z INFO devtools: COMMAND navigateTo("https://example.org/")
+2025-11-10T07:38:42.563Z INFO devtools: RESULT null
+[DEBUG] Navigated to example.org
+2025-11-10T07:38:42.564Z INFO devtools: COMMAND getWindowRect()
+2025-11-10T07:38:42.565Z INFO devtools: RESULT { width: 1200, height: 900, x: 0, y: 0 }
+[DEBUG] Window size: { width: 1200, height: 900 }
+2025-11-10T07:38:42.565Z INFO devtools: COMMAND getTitle()
+2025-11-10T07:38:42.565Z INFO devtools: RESULT Example Domain
+[RETRY DEMO] Page title: Example Domain
+2025-11-10T07:38:42.566Z INFO devtools: COMMAND executeScript("
+            function webdriverioPolyfill() {
+  var __defProp = Object.defineProperty;
+  var __name = function(target, _value) {
+    return __defProp(target, "name", { value: _value, configurable: true });
+  };
+  var __globalThis = typeof globalThis === "object" && globalThis || typeof window === "object" && window;
+  __globalThis.__name = __name;
+}
+            webdriverioPolyfill()
+            return (()=>document.readyState).apply(null, arguments)
+        ", <object>)

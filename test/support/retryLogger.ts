@@ -3,6 +3,7 @@
 
 import type { Context } from 'mocha'
 import { browser } from '@wdio/globals'
+import { enableDebugMode, disableDebugMode } from './debugMode'
 
 export const mochaHooks = {
   afterEach: async function(this: Context) {
@@ -16,29 +17,27 @@ export const mochaHooks = {
     const passed = test.state === 'passed'
 
     if (!passed && currentRetry < maxRetries) {
-      // Test failed but will be retried - switch log level to DEBUG
+      // Test failed but will be retried - enable debug mode for test code
       console.log(`\n${'='.repeat(70)}`)
       console.log(`[RETRY ${currentRetry + 1}/${maxRetries + 1}] Test "${test.title}" FAILED`)
-      console.log('[RETRY] Switching to DEBUG log level for next attempt')
+      console.log('[RETRY] Enabling DEBUG mode for next attempt')
+      console.log('[RETRY] Tests can now use debugLog() for enhanced diagnostics')
       console.log('='.repeat(70) + '\n')
 
-      // Dynamically import logger to avoid chalk issues at module load time
+      // Enable debug mode - tests can check this flag
+      enableDebugMode()
+
+      // Also try to increase WDIO logger verbosity
       try {
         const getLogger = (await import('@wdio/logger')).default
-
-        // Set log levels using setLogLevelsConfig (sets defaults for all loggers)
-        getLogger.setLogLevelsConfig({
-          devtools: 'debug',
-          webdriver: 'debug',
-          webdriverio: 'debug'
-        }, 'debug')
-
-        console.log('[RETRY] Log level changed to DEBUG via setLogLevelsConfig')
+        getLogger('devtools').setLevel('debug')
+        getLogger('webdriver').setLevel('debug')
+        console.log('[RETRY] WDIO log level set to DEBUG')
       } catch (error) {
-        console.log('[RETRY] Could not change log level:', (error as Error).message)
+        console.log('[RETRY] WDIO logger unavailable, using debug mode flag only')
       }
 
-      // Also take diagnostic screenshot
+      // Take diagnostic screenshot
       try {
         await browser.takeScreenshot()
         const url = await browser.getUrl()
@@ -55,17 +54,16 @@ export const mochaHooks = {
       console.log(`[RETRY SUCCESS] Test "${test.title}" PASSED on attempt ${currentRetry + 1}/${maxRetries + 1}`)
       console.log('='.repeat(70) + '\n')
 
-      // Reset to INFO level
+      // Disable debug mode and reset log level
+      disableDebugMode()
+
       try {
         const getLogger = (await import('@wdio/logger')).default
-        getLogger.setLogLevelsConfig({
-          devtools: 'info',
-          webdriver: 'info',
-          webdriverio: 'info'
-        }, 'info')
-        console.log('[RETRY] Log level reset to INFO')
+        getLogger('devtools').setLevel('info')
+        getLogger('webdriver').setLevel('info')
+        console.log('[RETRY] Debug mode disabled, log level reset to INFO')
       } catch (error) {
-        // Ignore logger errors
+        // Ignore
       }
 
     } else if (!passed && maxRetries > 0 && currentRetry >= maxRetries) {
@@ -74,14 +72,13 @@ export const mochaHooks = {
       console.log(`[RETRY EXHAUSTED] Test "${test.title}" failed all ${maxRetries + 1} attempts`)
       console.log('='.repeat(70) + '\n')
 
-      // Reset to INFO level
+      // Disable debug mode
+      disableDebugMode()
+
       try {
         const getLogger = (await import('@wdio/logger')).default
-        getLogger.setLogLevelsConfig({
-          devtools: 'info',
-          webdriver: 'info',
-          webdriverio: 'info'
-        }, 'info')
+        getLogger('devtools').setLevel('info')
+        getLogger('webdriver').setLevel('info')
       } catch (error) {
         // Ignore
       }
