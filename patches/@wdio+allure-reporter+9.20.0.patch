@@ -1,16 +1,86 @@
 diff --git a/node_modules/@wdio/allure-reporter/build/index.js b/node_modules/@wdio/allure-reporter/build/index.js
-index 64546bd..acd86f0 100644
+index 64546bd..9867e27 100644
 --- a/node_modules/@wdio/allure-reporter/build/index.js
 +++ b/node_modules/@wdio/allure-reporter/build/index.js
-@@ -533,7 +533,10 @@ var AllureReportState = class {
+@@ -533,43 +533,49 @@ var AllureReportState = class {
      if (!this._currentTestUuid) {
        return;
      }
 -    const startIdx = this._pendingHookMessages.findIndex(
-+    // PATCH: Use findLastIndex to find innermost hook when there are nested root + suite hooks
-+    // This ensures steps are attached to the correct hook that actually contains them
-+    // Original code used findIndex which found the first/outermost hook, losing nested steps
-+    const startIdx = findLastIndex(this._pendingHookMessages,
-       (m) => m.type === "allure:hook:start" && m.data.type === kind && typeof m.data.name === "string" && (scope === "each" ? /each/i.test(m.data.name) : /all/i.test(m.data.name))
-     );
-     if (startIdx === -1) {
+-      (m) => m.type === "allure:hook:start" && m.data.type === kind && typeof m.data.name === "string" && (scope === "each" ? /each/i.test(m.data.name) : /all/i.test(m.data.name))
+-    );
+-    if (startIdx === -1) {
+-      return;
+-    }
+-    const endIdx = this._pendingHookMessages.findIndex((m, idx) => idx > startIdx && m.type === "allure:hook:end");
+-    if (endIdx === -1) {
+-      return;
+-    }
+-    const startMsg = this._pendingHookMessages[startIdx];
+-    const endMsg = this._pendingHookMessages[endIdx];
+-    await this._startHook({
+-      type: "allure:hook:start",
+-      data: {
+-        name: String(startMsg.data.name || ""),
+-        type: kind,
+-        start: startMsg.data.start
++
++    // PATCH: Process ALL matching hooks (not just first), in order from outermost to innermost
++    // This handles nested root + suite hooks correctly, preserving both fixtures
++    while (true) {
++      const startIdx = this._pendingHookMessages.findIndex(
++        (m) => m.type === "allure:hook:start" && m.data.type === kind && typeof m.data.name === "string" && (scope === "each" ? /each/i.test(m.data.name) : /all/i.test(m.data.name))
++      );
++      if (startIdx === -1) {
++        return;
+       }
+-    });
+-    const currentHookUuid = this._fixturesStack.at(-1);
+-    if (currentHookUuid) {
+-      for (let i = startIdx + 1; i < endIdx; i++) {
+-        const msg = this._pendingHookMessages[i];
+-        if (msg.type === "step_start") {
+-          this._incHookSteps(currentHookUuid);
+-        }
+-        if (msg.type === "step_stop") {
+-          this._decHookSteps(currentHookUuid);
++      const endIdx = this._pendingHookMessages.findIndex((m, idx) => idx > startIdx && m.type === "allure:hook:end");
++      if (endIdx === -1) {
++        return;
++      }
++      const startMsg = this._pendingHookMessages[startIdx];
++      const endMsg = this._pendingHookMessages[endIdx];
++      await this._startHook({
++        type: "allure:hook:start",
++        data: {
++          name: String(startMsg.data.name || ""),
++          type: kind,
++          start: startMsg.data.start
+         }
+-        if (this._isRuntimeMessage(msg)) {
+-          this.allureRuntime.applyRuntimeMessages(currentHookUuid, [msg]);
++      });
++      const currentHookUuid = this._fixturesStack.at(-1);
++      if (currentHookUuid) {
++        for (let i = startIdx + 1; i < endIdx; i++) {
++          const msg = this._pendingHookMessages[i];
++          if (msg.type === "step_start") {
++            this._incHookSteps(currentHookUuid);
++          }
++          if (msg.type === "step_stop") {
++            this._decHookSteps(currentHookUuid);
++          }
++          if (this._isRuntimeMessage(msg)) {
++            this.allureRuntime.applyRuntimeMessages(currentHookUuid, [msg]);
++          }
+         }
+       }
++      await this._endHook(endMsg);
++      this._pendingHookMessages.splice(startIdx, endIdx - startIdx + 1);
++      // Continue loop to process next hook
+     }
+-    await this._endHook(endMsg);
+-    this._pendingHookMessages.splice(startIdx, endIdx - startIdx + 1);
+   }
+ };
+ 
