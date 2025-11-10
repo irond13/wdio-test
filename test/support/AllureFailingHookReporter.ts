@@ -84,7 +84,6 @@ export default class AllureFailingHookReporter extends WDIOReporter {
      */
     process.on('allure:runtimeMessage', (payload) => {
       if (!this.hasRealTestStarted && (this.inBeforeAll || this.inAfterAll)) {
-        console.log('[AllureFailingHookReporter] Buffering:', payload.type)
         this.bufferedEvents.push({ message: payload, at: Date.now() })
       }
     })
@@ -136,26 +135,21 @@ export default class AllureFailingHookReporter extends WDIOReporter {
     if (isAfterAll) this.inAfterAll = false
 
     /*
-     * Success case: beforeAll/afterAll succeeded with buffered events
-     *
-     * Limitation: Cannot inject steps into passing fixtures with current approach
-     * Why:
-     * - @wdio/allure-reporter manages hooks via internal state (_hasPendingHook, _currentHook)
-     * - allure:hook:start/end events are OUTPUT only (for other reporters), not INPUT
-     * - Emitting these events doesn't prevent allure from creating its own fixture
-     * - Would need to monkey-patch allure reporter's _startHook method (too fragile)
-     *
-     * Current behavior:
-     * - Buffer is cleared
-     * - Default WDIO fixture shows hook passed (no steps)
-     * - Acceptable since passing hooks are less critical than failures
-     *
-     * Future improvement: Could explore WDIO reporter lifecycle hooks or custom allure adapter
+     * Success case: beforeAll/afterAll succeeded
+     * Clear our buffer - we don't need it
+     * The @wdio/allure-reporter has its OWN internal buffering that automatically
+     * captures and replays steps into fixtures when hooks pass
+     * Our custom buffering is ONLY needed for the failure case
      */
-    if (!hadError && !this.hasRealTestStarted && this.bufferedEvents.length > 0 && (isBeforeAll || isAfterAll)) {
-      console.log('[AllureFailingHookReporter] SUCCESS case: Flushing', this.bufferedEvents.length, 'events')
-      await this.flushBufferedEvents()
-      this.clearBuffers()
+    /*
+     * Success case: Hook passed
+     * Clear our buffer - allure reporter's own buffering already captured the steps
+     * With the findLastIndex patch, allure now correctly attaches steps to fixtures
+     */
+    if (!hadError) {
+      if (this.bufferedEvents.length > 0) {
+        this.clearBuffers()
+      }
       return
     }
 

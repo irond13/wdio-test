@@ -1,4 +1,4 @@
 "DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
-"","3","runs successfully after beforeAll","Passing beforeAll with steps","Sun Nov 09 18:10:45 EST 2025","passed","Sun Nov 09 18:10:45 EST 2025","","","",""
-"","159","opens the page and verifies title and heading","Example Domain","Sun Nov 09 18:10:39 EST 2025","passed","Sun Nov 09 18:10:39 EST 2025","","","",""
-"","0","Global Setup: (root) ","(root)","Sun Nov 09 18:10:44 EST 2025","broken","Sun Nov 09 18:10:44 EST 2025","","","",""
+"","328","opens the page and verifies title and heading","Example Domain","Sun Nov 09 19:29:13 EST 2025","passed","Sun Nov 09 19:29:13 EST 2025","","","",""
+"","0","(root): beforeAll hook failure","(root)","Sun Nov 09 19:29:20 EST 2025","broken","Sun Nov 09 19:29:20 EST 2025","","","",""
+"","1","test after passing hook","Debug passing hook","Sun Nov 09 19:29:14 EST 2025","passed","Sun Nov 09 19:29:14 EST 2025","","","",""
