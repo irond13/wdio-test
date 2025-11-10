@@ -1,45 +1,57 @@
-// Mocha Root Hook Plugin for retry log level management
+// Mocha Root Hook Plugin for retry tracking and enhanced logging
 // Applies to ALL tests that use retries
 
-// Note: Using @wdio/logger causes chalk import issues in some setups
-// For now, just log retry status - log level changing can be added per-test if needed
+import type { Context } from 'mocha'
+import { browser } from '@wdio/globals'
 
-// Mocha context type
-interface MochaContext {
-  currentTest?: {
-    title: string
-    state?: 'passed' | 'failed'
-    _currentRetry?: number
-    _retries?: number
-  }
-}
+// Note: @wdio/logger.setLevel() has chalk dependency issues in some versions
+// Alternative: Add custom verbose logging on retries instead
 
 export const mochaHooks = {
-  afterEach: function(this: MochaContext) {
-    // Access Mocha's test context
+  afterEach: async function(this: Context) {
+    // Access Mocha's test context (properly typed - from @types/mocha)
     const test = this.currentTest
     if (!test) return
 
-    const currentRetry = test._currentRetry || 0
-    const maxRetries = test._retries || 0
+    // Mocha's internal retry tracking (_currentRetry is 0-indexed)
+    const currentRetry = (test as any)._currentRetry || 0
+    const maxRetries = (test as any)._retries || 0
     const passed = test.state === 'passed'
 
     if (!passed && currentRetry < maxRetries) {
       // Test failed but will be retried
       console.log(`\n${'='.repeat(70)}`)
       console.log(`[RETRY ${currentRetry + 1}/${maxRetries + 1}] Test "${test.title}" FAILED`)
-      console.log('[RETRY] Will retry with enhanced logging...')
+      console.log('[RETRY] Next attempt will have enhanced diagnostics:')
+      console.log('[RETRY] - Taking diagnostic screenshot')
+      console.log('[RETRY] - Capturing browser state')
       console.log('='.repeat(70) + '\n')
 
-      // Log level change would go here (requires logger without chalk issues)
-      // For now, retry messages are captured in console logs
+      // Take diagnostic screenshot before retry
+      try {
+        await browser.takeScreenshot()
+        console.log('[RETRY] Diagnostic screenshot captured')
+      } catch (e) {
+        console.log('[RETRY] Could not capture screenshot:', (e as Error).message)
+      }
+
+      // Log browser state
+      try {
+        const url = await browser.getUrl()
+        const title = await browser.getTitle()
+        console.log(`[RETRY] Browser URL: ${url}`)
+        console.log(`[RETRY] Page Title: ${title}`)
+      } catch (e) {
+        console.log('[RETRY] Could not capture browser state')
+      }
+
     } else if (passed && currentRetry > 0) {
       // Test passed after retry
       console.log(`\n${'='.repeat(70)}`)
       console.log(`[RETRY SUCCESS] Test "${test.title}" PASSED on attempt ${currentRetry + 1}/${maxRetries + 1}`)
       console.log('='.repeat(70) + '\n')
     } else if (!passed && maxRetries > 0 && currentRetry >= maxRetries) {
-      // Exhausted retries
+      // Exhausted all retries
       console.log(`\n${'='.repeat(70)}`)
       console.log(`[RETRY EXHAUSTED] Test "${test.title}" failed all ${maxRetries + 1} attempts`)
       console.log('='.repeat(70) + '\n')
