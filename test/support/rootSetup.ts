@@ -1,49 +1,58 @@
 /**
- * Global Mocha Setup
- * ===================
+ * Root Setup Hook
+ * ================
  *
- * Runs once per worker process via mochaGlobalSetup.
- * Registers a root before() hook that will be captured by AllureFailingHookReporter if it fails.
+ * Runs once per worker process using module-level flag.
+ * Must use mochaHooks (not mochaGlobalSetup) because Allure can only capture
+ * events from hooks that execute within the Mocha runner lifecycle.
  *
- * Source: https://mochajs.org/next/features/global-fixtures/
+ * Why not mochaGlobalSetup:
+ * - Executes BEFORE runner starts emitting events
+ * - WDIO reporters attach listeners AFTER mochaGlobalSetup runs
+ * - Failures occur in event-free "no-man's land"
+ * - Source: node_modules/mocha/lib/mocha.js lines 1007 (globalSetup) vs 1094 (EVENT_RUN_BEGIN)
+ *
+ * Source: https://mochajs.org/#root-hook-plugins
  */
 
 import { browser } from '@wdio/globals';
 import { step } from 'allure-js-commons';
 
-// Track if setup has run in this worker process
+// Module-level flag - each worker is separate process with own memory
 let hasRun = false;
 
-export const mochaGlobalSetup = async () => {
+export const mochaHooks = async () => {
   const getLogger = (await import('@wdio/logger')).default;
-  const log = getLogger('globalSetup');
+  const log = getLogger('rootSetup');
 
-  // Register root before() hook that only executes once per worker
-  before('Global setup', async function() {
-    if (hasRun) {
-      log.debug('Setup already ran in this worker, skipping');
-      return;
+  return {
+    beforeAll: async function() {
+      // Only run once per worker (flag prevents re-execution across multiple specs)
+      if (hasRun) {
+        log.debug('Root setup already ran in this worker, skipping');
+        return;
+      }
+      hasRun = true;
+
+      log.info('Starting root setup');
+
+      await step('Root setup step 1: Navigate', async () => {
+        log.debug('Navigating to example.org');
+        await browser.url('https://example.org');
+      });
+
+      await step('Root setup step 2: Screenshot', async () => {
+        log.debug('Taking root setup screenshot');
+        await browser.takeScreenshot();
+      });
+
+      log.info('Root setup completed');
+
+      // Enable failure via: GLOBAL_HOOK_FAIL=1 npm run test
+      if (process.env.GLOBAL_HOOK_FAIL) {
+        log.error('Root hook intentionally failing (GLOBAL_HOOK_FAIL set)');
+        throw new Error('Root setup failure - captured in Allure!');
+      }
     }
-    hasRun = true;
-
-    log.info('Starting global setup');
-
-    await step('Global setup step 1: Navigate', async () => {
-      log.debug('Navigating to example.org');
-      await browser.url('https://example.org');
-    });
-
-    await step('Global setup step 2: Screenshot', async () => {
-      log.debug('Taking global setup screenshot');
-      await browser.takeScreenshot();
-    });
-
-    log.info('Global setup completed');
-
-    // Enable failure via: GLOBAL_HOOK_FAIL=1 npm run test
-    if (process.env.GLOBAL_HOOK_FAIL) {
-      log.error('Global hook intentionally failing (GLOBAL_HOOK_FAIL set)');
-      throw new Error('Global setup failure - captured in Allure!');
-    }
-  });
+  };
 };
