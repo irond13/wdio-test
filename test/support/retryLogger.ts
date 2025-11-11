@@ -101,8 +101,15 @@
  * - WDIO Logger ESM-only: https://github.com/webdriverio/webdriverio/issues/10520
  */
 
-import type { Context } from 'mocha'
+import type { Context, Test } from 'mocha'
 import type { LogLevelDesc } from 'loglevel'
+
+// Mocha's Test class has currentRetry() and retries() as protected methods
+// but they're accessible at runtime. We use this interface to access them.
+interface TestWithRetryAPI extends Test {
+  currentRetry(): number
+  retries(): number
+}
 
 /**
  * mochaHooks as async function - allows logger initialization in closure
@@ -118,12 +125,12 @@ export const mochaHooks = async () => {
 
   return {
     afterEach: async function(this: Context) {
-      const test = this.currentTest
+      const test = this.currentTest as TestWithRetryAPI | undefined
       if (!test) return
 
-      // Access Mocha's internal retry tracking (no public API available)
-      const currentRetry = (test as any)._currentRetry || 0
-      const maxRetries = (test as any)._retries || 0
+      // Mocha's retry API (protected in types, but public at runtime)
+      const currentRetry = test.currentRetry()
+      const maxRetries = test.retries()
       const passed = test.state === 'passed'
 
       if (!passed && currentRetry < maxRetries) {
