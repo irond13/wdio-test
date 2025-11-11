@@ -104,10 +104,8 @@
 import type { Context } from 'mocha'
 import type { LogLevelDesc } from 'loglevel'
 
-
 /**
  * mochaHooks as async function - allows logger initialization in closure
- * Properly typed, no 'any' declarations needed
  */
 export const mochaHooks = async () => {
   const getLogger = (await import('@wdio/logger')).default
@@ -122,10 +120,10 @@ export const mochaHooks = async () => {
       const test = this.currentTest
       if (!test) return
 
-      // Mocha retry tracking - uses internal properties (no public TypeScript API)
-      // Source: https://github.com/mochajs/mocha/issues/2529
-      const currentRetry = (test as any)._currentRetry || 0
-      const maxRetries = (test as any)._retries || 0
+      // @ts-ignore - Mocha's public API (currentRetry/retries methods exist but marked protected in types)
+      const currentRetry = test.currentRetry()
+      // @ts-ignore - retries() is public per Mocha source (node_modules/mocha/lib/runnable.js)
+      const maxRetries = test.retries()
       const passed = test.state === 'passed'
 
       if (!passed && currentRetry < maxRetries) {
