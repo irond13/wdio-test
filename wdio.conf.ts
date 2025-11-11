@@ -36,7 +36,7 @@ export const config: WebdriverIO.Config = {
     ui: 'bdd',
     timeout: 60000,
     require: [
-      './test/support/rootSetup.ts',      // Root beforeAll hook (runs per spec)
+      './test/support/rootSetup.ts',      // Global setup (once per worker)
       './test/support/retryLogger.ts'     // Retry log level management
     ],
     retries: 1  // Global retry limit (can override per-test with this.retries(n))

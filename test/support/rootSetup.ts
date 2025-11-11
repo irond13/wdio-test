@@ -1,48 +1,40 @@
 /**
- * Root Mocha Setup Hook
- * ======================
+ * Global Mocha Setup
+ * ===================
  *
- * Runs once per spec file (before all tests in that spec).
- * Establishes baseline browser state and is capturable by AllureFailingHookReporter.
+ * Runs once per worker process via mochaGlobalSetup.
+ * Registers a root before() hook that will be captured by AllureFailingHookReporter if it fails.
  *
- * Trade-off: Runs per-spec instead of once-per-worker, but this allows Allure
- * to capture failures (mochaGlobalSetup failures kill process before reporters run).
- *
- * Source: https://mochajs.org/#root-hook-plugins
+ * Source: https://mochajs.org/next/features/global-fixtures/
  */
 
 import { browser } from '@wdio/globals';
 import { step } from 'allure-js-commons';
 
-/**
- * Root beforeAll hook - runs once per spec file
- * Failures are captured by AllureFailingHookReporter with steps/screenshots/logs
- */
-export const mochaHooks = async () => {
+export const mochaGlobalSetup = async () => {
   const getLogger = (await import('@wdio/logger')).default;
-  const log = getLogger('rootSetup');
+  const log = getLogger('globalSetup');
 
-  return {
-    beforeAll: async function() {
-      log.info('Starting root setup');
+  // Register root before() hook - runs once per spec (necessary for Allure capture)
+  before('Global setup', async function() {
+    log.info('Starting global setup');
 
-      await step('Root setup step 1: Navigate', async () => {
-        log.debug('Navigating to example.org');
-        await browser.url('https://example.org');
-      });
+    await step('Global setup step 1: Navigate', async () => {
+      log.debug('Navigating to example.org');
+      await browser.url('https://example.org');
+    });
 
-      await step('Root setup step 2: Screenshot', async () => {
-        log.debug('Taking root setup screenshot');
-        await browser.takeScreenshot();
-      });
+    await step('Global setup step 2: Screenshot', async () => {
+      log.debug('Taking global setup screenshot');
+      await browser.takeScreenshot();
+    });
 
-      log.info('Root setup completed');
+    log.info('Global setup completed');
 
-      // Enable root hook failure via: ROOT_HOOK_FAIL=1 npm run test
-      if (process.env.ROOT_HOOK_FAIL) {
-        log.error('Root hook intentionally failing (ROOT_HOOK_FAIL set)');
-        throw new Error('Root beforeAll hook failure - captured in Allure!');
-      }
+    // Enable failure via: GLOBAL_HOOK_FAIL=1 npm run test
+    if (process.env.GLOBAL_HOOK_FAIL) {
+      log.error('Global hook intentionally failing (GLOBAL_HOOK_FAIL set)');
+      throw new Error('Global setup failure - captured in Allure!');
     }
-  };
+  });
 };
