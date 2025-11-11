@@ -11,31 +11,32 @@
 import { browser } from '@wdio/globals'
 import { step } from 'allure-js-commons'
 
-// Logger instance (initialized in globalSetup)
-let log: any
-
-export async function mochaGlobalSetup() {
+/**
+ * mochaHooks as async function - allows logger initialization in closure
+ * Avoids module-level 'any' types
+ */
+export const mochaHooks = async () => {
   const getLogger = (await import('@wdio/logger')).default
-  log = getLogger('globalSetup')
-}
+  const log = getLogger('globalSetup')
 
-export const mochaHooks = {
-  beforeAll: async function() {
-    log.info('Starting global setup')
+  return {
+    beforeAll: async function() {
+      log.info('Starting global setup')
 
-    await step('Global Mocha step 1', async () => {
-      log.debug('Executing global Mocha hook step 1')
-      await browser.url('https://example.org')
-    })
+      await step('Global Mocha step 1', async () => {
+        log.debug('Executing global Mocha hook step 1')
+        await browser.url('https://example.org')
+      })
 
-    await step('Global Mocha step 2: screenshot', async () => {
-      log.debug('Taking global Mocha screenshot')
-      await browser.takeScreenshot()
-    })
+      await step('Global Mocha step 2: screenshot', async () => {
+        log.debug('Taking global Mocha screenshot')
+        await browser.takeScreenshot()
+      })
 
-    log.info('Global Mocha hook completed')
+      log.info('Global Mocha hook completed')
 
-    // Uncomment to test global hook failure killing ALL tests:
-    // throw new Error('Global Mocha hook failure - should kill ALL tests!')
+      // Uncomment to test global hook failure killing ALL tests:
+      // throw new Error('Global Mocha hook failure - should kill ALL tests!')
+    }
   }
 }

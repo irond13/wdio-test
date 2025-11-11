@@ -78,7 +78,11 @@
  * Logger Initialization:
  * ----------------------
  *
- * Why mochaGlobalSetup instead of module-level import:
+ * mochaHooks can be an async function that returns the hooks object.
+ * This allows us to initialize the logger in the function closure,
+ * avoiding module-level 'any' types.
+ *
+ * Why async function instead of module-level import:
  *
  * 1. @wdio/logger is ESM-only since v8+
  *    Source: https://github.com/webdriverio/webdriverio/issues/10520
@@ -87,13 +91,12 @@
  * 2. CommonJS projects (module: "CommonJS" in tsconfig.json) cannot use top-level await
  *    Error: "Top-level await is currently not supported with the 'cjs' output format"
  *
- * 3. mochaGlobalSetup runs once per worker process (Mocha v8.2.0+)
- *    Source: https://mochajs.org/next/features/global-fixtures/
- *    Perfect for initializing logger instance available to all tests in worker
+ * 3. mochaHooks as async function:
+ *    Source: https://mochajs.org/next/features/root-hook-plugins/
+ *    "If you need to perform some logic, mochaHooks can be a function which returns the expected object"
  *
  * References:
  * -----------
- * - Mocha Global Fixtures: https://mochajs.org/next/features/global-fixtures/
  * - Mocha Root Hook Plugins: https://mochajs.org/#root-hook-plugins
  * - WDIO Logger ESM-only: https://github.com/webdriverio/webdriverio/issues/10520
  */
@@ -101,124 +104,117 @@
 import type { Context } from 'mocha'
 import type { LogLevelDesc } from 'loglevel'
 
-// Logger instance for this module
-let log: any
-
-// Store original log configuration to restore after retry
-let originalLogLevel: LogLevelDesc | undefined
-let originalLoggerLevels: Record<string, number> = {}
-
 /**
- * Global Setup - Initialize logger once per worker process
- * Uses dynamic import to handle ESM-only @wdio/logger in CommonJS context
+ * mochaHooks as async function - allows logger initialization in closure
+ * Avoids module-level 'any' types by deferring initialization
  */
-export async function mochaGlobalSetup() {
+export const mochaHooks = async () => {
   const getLogger = (await import('@wdio/logger')).default
-  log = getLogger('retryLogger')
-}
+  const log = getLogger('retryLogger')
 
-/**
- * Mocha Hooks - afterEach runs after every test
- */
-export const mochaHooks = {
-  afterEach: async function(this: Context) {
-    const test = this.currentTest
-    if (!test) return
+  // Store original log configuration to restore after retry
+  let originalLogLevel: LogLevelDesc | undefined
+  let originalLoggerLevels: Record<string, number> = {}
 
-    const currentRetry = (test as any)._currentRetry || 0
-    const maxRetries = (test as any)._retries || 0
-    const passed = test.state === 'passed'
+  return {
+    afterEach: async function(this: Context) {
+      const test = this.currentTest
+      if (!test) return
 
-    if (!passed && currentRetry < maxRetries) {
-      // Test failed and will be retried - switch to debug logging
-      log.info(`\n${'='.repeat(70)}`)
-      log.info(`[RETRY ${currentRetry + 1}/${maxRetries + 1}] Test "${test.title}" FAILED`)
-      log.info('[RETRY] Enabling DEBUG logging for next attempt')
-      log.info('='.repeat(70) + '\n')
+      const currentRetry = (test as any)._currentRetry || 0
+      const maxRetries = (test as any)._retries || 0
+      const passed = test.state === 'passed'
 
-      try {
-        const getLogger = (await import('@wdio/logger')).default
-        const loglevel = await import('loglevel')
+      if (!passed && currentRetry < maxRetries) {
+        // Test failed and will be retried - switch to debug logging
+        log.info(`\n${'='.repeat(70)}`)
+        log.info(`[RETRY ${currentRetry + 1}/${maxRetries + 1}] Test "${test.title}" FAILED`)
+        log.info('[RETRY] Enabling DEBUG logging for next attempt')
+        log.info('='.repeat(70) + '\n')
 
-        // Save original configuration (only once per test)
-        if (!originalLogLevel) {
-          originalLogLevel = (process.env.WDIO_LOG_LEVEL as LogLevelDesc) || 'info'
+        try {
+          const loglevel = await import('loglevel')
 
-          // Save individual logger levels to preserve config.logLevels overrides
+          // Save original configuration (only once per test)
+          if (!originalLogLevel) {
+            originalLogLevel = (process.env.WDIO_LOG_LEVEL as LogLevelDesc) || 'info'
+
+            // Save individual logger levels to preserve config.logLevels overrides
+            const allLoggers = loglevel.default.getLoggers()
+            originalLoggerLevels = {}
+            for (const [name, logger] of Object.entries(allLoggers)) {
+              originalLoggerLevels[name] = logger.getLevel()
+            }
+
+            log.trace(`Saved original log level: ${originalLogLevel}`)
+            log.trace(`Saved ${Object.keys(originalLoggerLevels).length} logger-specific levels`)
+          }
+
+          // Switch all loggers to debug
+          process.env.WDIO_LOG_LEVEL = 'debug'
+          getLogger.setLogLevelsConfig({}, 'debug')
+          log.trace('ALL loggers switched to DEBUG level')
+        } catch (error) {
+          log.warn('Failed to switch log levels:', error)
+        }
+
+      } else if (passed && currentRetry > 0) {
+        // Test passed after retry - restore original log levels
+        log.info(`\n${'='.repeat(70)}`)
+        log.info(`[RETRY SUCCESS] Test "${test.title}" PASSED on attempt ${currentRetry + 1}/${maxRetries + 1}`)
+        log.info('='.repeat(70) + '\n')
+
+        try {
+          const loglevel = await import('loglevel')
+          const levelToRestore = originalLogLevel || 'info'
+
+          // Restore environment variable
+          process.env.WDIO_LOG_LEVEL = String(levelToRestore)
+
+          // Restore individual logger levels (preserves config.logLevels)
           const allLoggers = loglevel.default.getLoggers()
+          const restoredCount = Object.keys(originalLoggerLevels).length
+          for (const [name, savedLevel] of Object.entries(originalLoggerLevels)) {
+            if (allLoggers[name]) {
+              allLoggers[name].setLevel(savedLevel as LogLevelDesc)
+            }
+          }
+
+          log.trace(`Restored ${restoredCount} logger levels`)
+          originalLogLevel = undefined
           originalLoggerLevels = {}
-          for (const [name, logger] of Object.entries(allLoggers)) {
-            originalLoggerLevels[name] = logger.getLevel()
-          }
-
-          log.trace(`Saved original log level: ${originalLogLevel}`)
-          log.trace(`Saved ${Object.keys(originalLoggerLevels).length} logger-specific levels`)
+        } catch (error) {
+          log.warn('Failed to restore logger levels:', error)
         }
 
-        // Switch all loggers to debug
-        process.env.WDIO_LOG_LEVEL = 'debug'
-        getLogger.setLogLevelsConfig({}, 'debug')
-        log.trace('ALL loggers switched to DEBUG level')
-      } catch (error) {
-        log.warn('Failed to switch log levels:', error)
-      }
+      } else if (!passed && maxRetries > 0 && currentRetry >= maxRetries) {
+        // Test exhausted all retries - restore original log levels
+        log.info(`\n${'='.repeat(70)}`)
+        log.info(`[RETRY EXHAUSTED] Test "${test.title}" failed all ${maxRetries + 1} attempts`)
+        log.info('='.repeat(70) + '\n')
 
-    } else if (passed && currentRetry > 0) {
-      // Test passed after retry - restore original log levels
-      log.info(`\n${'='.repeat(70)}`)
-      log.info(`[RETRY SUCCESS] Test "${test.title}" PASSED on attempt ${currentRetry + 1}/${maxRetries + 1}`)
-      log.info('='.repeat(70) + '\n')
+        try {
+          const loglevel = await import('loglevel')
+          const levelToRestore = originalLogLevel || 'info'
 
-      try {
-        const loglevel = await import('loglevel')
-        const levelToRestore = originalLogLevel || 'info'
+          // Restore environment variable
+          process.env.WDIO_LOG_LEVEL = String(levelToRestore)
 
-        // Restore environment variable
-        process.env.WDIO_LOG_LEVEL = String(levelToRestore)
-
-        // Restore individual logger levels (preserves config.logLevels)
-        const allLoggers = loglevel.default.getLoggers()
-        const restoredCount = Object.keys(originalLoggerLevels).length
-        for (const [name, savedLevel] of Object.entries(originalLoggerLevels)) {
-          if (allLoggers[name]) {
-            allLoggers[name].setLevel(savedLevel as LogLevelDesc)
+          // Restore individual logger levels (preserves config.logLevels)
+          const allLoggers = loglevel.default.getLoggers()
+          const restoredCount = Object.keys(originalLoggerLevels).length
+          for (const [name, savedLevel] of Object.entries(originalLoggerLevels)) {
+            if (allLoggers[name]) {
+              allLoggers[name].setLevel(savedLevel as LogLevelDesc)
+            }
           }
+
+          log.trace(`Restored ${restoredCount} logger levels`)
+          originalLogLevel = undefined
+          originalLoggerLevels = {}
+        } catch (error) {
+          log.warn('Failed to restore logger levels:', error)
         }
-
-        log.trace(`Restored ${restoredCount} logger levels`)
-        originalLogLevel = undefined
-        originalLoggerLevels = {}
-      } catch (error) {
-        log.warn('Failed to restore logger levels:', error)
-      }
-
-    } else if (!passed && maxRetries > 0 && currentRetry >= maxRetries) {
-      // Test exhausted all retries - restore original log levels
-      log.info(`\n${'='.repeat(70)}`)
-      log.info(`[RETRY EXHAUSTED] Test "${test.title}" failed all ${maxRetries + 1} attempts`)
-      log.info('='.repeat(70) + '\n')
-
-      try {
-        const loglevel = await import('loglevel')
-        const levelToRestore = originalLogLevel || 'info'
-
-        // Restore environment variable
-        process.env.WDIO_LOG_LEVEL = String(levelToRestore)
-
-        // Restore individual logger levels (preserves config.logLevels)
-        const allLoggers = loglevel.default.getLoggers()
-        const restoredCount = Object.keys(originalLoggerLevels).length
-        for (const [name, savedLevel] of Object.entries(originalLoggerLevels)) {
-          if (allLoggers[name]) {
-            allLoggers[name].setLevel(savedLevel as LogLevelDesc)
-          }
-        }
-
-        log.trace(`Restored ${restoredCount} logger levels`)
-        originalLogLevel = undefined
-        originalLoggerLevels = {}
-      } catch (error) {
-        log.warn('Failed to restore logger levels:', error)
       }
     }
   }
