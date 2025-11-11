@@ -1,0 +1,17 @@
+# Test results and reports
+allure-results/
+allure-report/
+
+# Dependencies
+node_modules/
+
+# Build outputs
+*.js
+*.js.map
+!wdio.conf.js
+
+# Logs
+*.log
+
+# OS
+.DS_Store
