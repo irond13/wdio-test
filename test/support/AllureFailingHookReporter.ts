@@ -138,7 +138,11 @@ export default class AllureFailingHookReporter extends WDIOReporter {
 
     const self = this
     // Replace with our wrapper that ALWAYS calls through to allure
-    process.stdout.write = function(chunk: any, encoding?: any, cb?: any): boolean {
+    process.stdout.write = function(
+      chunk: Uint8Array | string,
+      encoding?: BufferEncoding | ((error: Error | null | undefined) => void),
+      cb?: ((error: Error | null | undefined) => void)
+    ): boolean {
       const str = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8')
 
       // Capture during hooks

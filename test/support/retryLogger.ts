@@ -103,14 +103,21 @@
 
 import type { Context } from 'mocha'
 import type { LogLevelDesc } from 'loglevel'
+import type { Logger } from '@wdio/logger'
+
+// Mocha's internal retry properties (marked private in types but accessible at runtime)
+interface MochaTestInternal {
+  _currentRetry?: number
+  _retries?: number
+}
 
 /**
  * mochaHooks as async function - allows logger initialization in closure
- * Avoids module-level 'any' types by deferring initialization
+ * Properly typed, no 'any' declarations needed
  */
 export const mochaHooks = async () => {
   const getLogger = (await import('@wdio/logger')).default
-  const log = getLogger('retryLogger')
+  const log: Logger = getLogger('retryLogger')
 
   // Store original log configuration to restore after retry
   let originalLogLevel: LogLevelDesc | undefined
@@ -121,8 +128,8 @@ export const mochaHooks = async () => {
       const test = this.currentTest
       if (!test) return
 
-      const currentRetry = (test as any)._currentRetry || 0
-      const maxRetries = (test as any)._retries || 0
+      const currentRetry = (test as unknown as MochaTestInternal)._currentRetry || 0
+      const maxRetries = (test as unknown as MochaTestInternal)._retries || 0
       const passed = test.state === 'passed'
 
       if (!passed && currentRetry < maxRetries) {
