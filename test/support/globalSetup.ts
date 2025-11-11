@@ -10,7 +10,6 @@
 
 import { browser } from '@wdio/globals'
 import { step } from 'allure-js-commons'
-import type { Logger } from '@wdio/logger'
 
 /**
  * Global setup - runs once per worker process
@@ -18,7 +17,7 @@ import type { Logger } from '@wdio/logger'
  */
 export const mochaGlobalSetup = async () => {
   const getLogger = (await import('@wdio/logger')).default
-  const log: Logger = getLogger('globalSetup')
+  const log = getLogger('globalSetup')
 
   log.info('Starting global setup')
 
