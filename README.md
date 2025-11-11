@@ -50,7 +50,7 @@ npm run allure:open
 | Folder | Purpose | Gitignored |
 |--------|---------|------------|
 | `allure-results/` | Raw JSON test results, screenshots, attachments | Yes |
-| `allure-report/` | Static HTML report with interactive UI | Yes |
+| `allure-report/` | Single HTML file report (index.html) with embedded assets | Yes |
 
 ## Key Features Explained
 
@@ -182,10 +182,12 @@ npm run allure:serve      # Generate and serve in one command
 ## Allure Workflow
 
 1. **Run tests** → Creates `allure-results/` (JSON files, screenshots, attachments)
-2. **Generate report** → Creates `allure-report/` (static HTML/JS/CSS)
-3. **View report** → Opens `allure-report/index.html` in browser
+2. **Generate report** → Creates `allure-report/index.html` (single 7MB+ file with all assets embedded)
+3. **View report** → Opens in browser (can be shared as single file)
 
-**Note:** Both allure-results/ and allure-report/ are gitignored (regenerated on each run).
+**Note:**
+- Both folders are gitignored (regenerated on each run)
+- `--single-file` option creates self-contained HTML (easier to share than multi-file structure)
 
 ## Technical Notes
 

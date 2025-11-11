@@ -1,1 +1,0 @@
-{"total":2,"items":[{"uid":"2d1a286968d237f1cbb38602f65ec48b","name":"Scenario 4: Suite-level failure","statistic":{"failed":0,"broken":1,"skipped":0,"passed":0,"unknown":0,"total":1}},{"uid":"b7e14dbed043ecb538738a0005b0e0e6","name":"Scenario 1: All hooks pass","statistic":{"failed":0,"broken":0,"skipped":0,"passed":1,"unknown":0,"total":1}}]}

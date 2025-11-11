@@ -6,7 +6,7 @@
   "scripts": {
     "test": "wdio run wdio.conf.ts",
     "wdio": "wdio run wdio.conf.ts",
-    "allure:generate": "allure generate --clean allure-results -o allure-report",
+    "allure:generate": "allure generate --clean --single-file allure-results -o allure-report",
     "allure:open": "allure open ./allure-report"
   },
   "keywords": [],

@@ -1,1 +1,0 @@
-[{"uid":"4a7855c1be2413da","name":"test should run successfully","time":{"start":1762753301755,"stop":1762753301758,"duration":3},"status":"passed","severity":"normal"},{"uid":"bf1fa3ad17efa3fc","name":"Scenario 4: Suite-level failure: beforeAll hook failure","time":{"start":1762753304531,"stop":1762753304575,"duration":44},"status":"broken","severity":"normal"}]

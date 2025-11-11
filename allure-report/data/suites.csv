@@ -1,3 +1,0 @@
-"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
-"","3","test should run successfully","Scenario 1: All hooks pass","Mon Nov 10 00:41:41 EST 2025","passed","Mon Nov 10 00:41:41 EST 2025","","","",""
-"","44","Scenario 4: Suite-level failure: beforeAll hook failure","Scenario 4: Suite-level failure","Mon Nov 10 00:41:44 EST 2025","broken","Mon Nov 10 00:41:44 EST 2025","","","",""
