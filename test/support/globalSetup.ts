@@ -31,8 +31,11 @@ export const mochaGlobalSetup = async () => {
     await browser.takeScreenshot()
   })
 
-  log.info('Global Mocha hook completed')
+  log.info('Global Mocha hook completed');
 
-  // Uncomment to test global hook failure killing ALL tests:
-  // throw new Error('Global Mocha hook failure - should kill ALL tests!')
-}
+  // Enable global failure via: GLOBAL_HOOK_FAIL=1 npm run test
+  if (process.env.GLOBAL_HOOK_FAIL) {
+    log.error('Global hook intentionally failing (GLOBAL_HOOK_FAIL set)');
+    throw new Error('Global Mocha hook failure - kills ALL tests!');
+  }
+};
