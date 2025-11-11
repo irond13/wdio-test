@@ -12,30 +12,34 @@ import { browser } from '@wdio/globals'
 import { step } from 'allure-js-commons'
 
 /**
- * Global setup - runs once per worker process
- * Uses closure to initialize logger and avoid module-level state
+ * mochaHooks with root-level beforeAll
+ * Runs once per spec file, captured by AllureFailingHookReporter
  */
-export const mochaGlobalSetup = async () => {
-  const getLogger = (await import('@wdio/logger')).default
-  const log = getLogger('globalSetup')
+export const mochaHooks = async () => {
+  const getLogger = (await import('@wdio/logger')).default;
+  const log = getLogger('globalSetup');
 
-  log.info('Starting global setup')
+  return {
+    beforeAll: async function() {
+      log.info('Starting global setup');
 
-  await step('Global Mocha step 1', async () => {
-    log.debug('Executing global Mocha hook step 1')
-    await browser.url('https://example.org')
-  })
+      await step('Global Mocha step 1', async () => {
+        log.debug('Executing global Mocha hook step 1');
+        await browser.url('https://example.org');
+      });
 
-  await step('Global Mocha step 2: screenshot', async () => {
-    log.debug('Taking global Mocha screenshot')
-    await browser.takeScreenshot()
-  })
+      await step('Global Mocha step 2: screenshot', async () => {
+        log.debug('Taking global Mocha screenshot');
+        await browser.takeScreenshot();
+      });
 
-  log.info('Global Mocha hook completed');
+      log.info('Global Mocha hook completed');
 
-  // Enable global failure via: GLOBAL_HOOK_FAIL=1 npm run test
-  if (process.env.GLOBAL_HOOK_FAIL) {
-    log.error('Global hook intentionally failing (GLOBAL_HOOK_FAIL set)');
-    throw new Error('Global Mocha hook failure - kills ALL tests!');
-  }
+      // Enable global failure via: GLOBAL_HOOK_FAIL=1 npm run test
+      if (process.env.GLOBAL_HOOK_FAIL) {
+        log.error('Global hook intentionally failing (GLOBAL_HOOK_FAIL set)');
+        throw new Error('Global Mocha hook failure - should be captured in Allure!');
+      }
+    }
+  };
 };
