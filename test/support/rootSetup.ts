@@ -18,41 +18,27 @@
 import { browser } from '@wdio/globals';
 import { step } from 'allure-js-commons';
 
-// Module-level flag - each worker is separate process with own memory
-let hasRun = false;
-
-export const mochaHooks = async () => {
+export const mochaGlobalSetup = async () => {
   const getLogger = (await import('@wdio/logger')).default;
-  const log = getLogger('rootSetup');
+  const log = getLogger('globalSetup');
 
-  return {
-    beforeAll: async function() {
-      // Only run once per worker (flag prevents re-execution across multiple specs)
-      if (hasRun) {
-        log.debug('Root setup already ran in this worker, skipping');
-        return;
-      }
-      hasRun = true;
+  log.info('Starting global setup');
 
-      log.info('Starting root setup');
+  await step('Global setup step 1: Navigate', async () => {
+    log.debug('Navigating to example.org');
+    await browser.url('https://example.org');
+  });
 
-      await step('Root setup step 1: Navigate', async () => {
-        log.debug('Navigating to example.org');
-        await browser.url('https://example.org');
-      });
+  await step('Global setup step 2: Screenshot', async () => {
+    log.debug('Taking global setup screenshot');
+    await browser.takeScreenshot();
+  });
 
-      await step('Root setup step 2: Screenshot', async () => {
-        log.debug('Taking root setup screenshot');
-        await browser.takeScreenshot();
-      });
+  log.info('Global setup completed');
 
-      log.info('Root setup completed');
-
-      // Enable failure via: GLOBAL_HOOK_FAIL=1 npm run test
-      if (process.env.GLOBAL_HOOK_FAIL) {
-        log.error('Root hook intentionally failing (GLOBAL_HOOK_FAIL set)');
-        throw new Error('Root setup failure - captured in Allure!');
-      }
-    }
-  };
+  // Enable failure via: GLOBAL_HOOK_FAIL=1 npm run test
+  if (process.env.GLOBAL_HOOK_FAIL) {
+    log.error('Global setup intentionally failing (GLOBAL_HOOK_FAIL set)');
+    throw new Error('Global setup failure - captured by AllureFailingHookReporter!');
+  }
 };

@@ -20,7 +20,7 @@
  *  - Without buffering, screenshots and steps from failing hooks disappear into the void
  */
 
-import WDIOReporter from '@wdio/reporter'
+import AllureReporter from '@wdio/allure-reporter'
 import type { Reporters } from '@wdio/types'
 import type { WDIORuntimeMessage } from '@wdio/allure-reporter'
 import { ContentType, Status, Stage } from 'allure-js-commons'
@@ -58,19 +58,128 @@ type BufferedEvent = {
   at: number
 }
 
-export default class AllureFailingHookReporter extends WDIOReporter {
+export default class AllureFailingHookReporter extends AllureReporter {
   private hasRealTestStarted = false
   private inBeforeAll = false
   private inAfterAll = false
   private hookSuiteTitle = ''
 
+  // Track active execution contexts to detect global fixtures
+  private activeSuites = new Set<any>()
+  private activeHooks = new Set<any>()
+  private activeTests = new Set<any>()
+
   private bufferedEvents: BufferedEvent[] = []
   private hookConsoleOutput = ''
   private allureStdoutWrapper: typeof process.stdout.write | null = null
   private hookLogsPrepended = false
+  private isFlushing = false  // Prevent re-buffering during flush
+  private exitHandlerRan = false  // Ensure exit handler only runs once
 
   constructor(options: Partial<Reporters.Options>) {
     super(options)
+
+    // Start capturing stdout immediately (for mochaGlobalSetup)
+    this.wrapStdout();
+
+    // Catch process exit to handle mochaGlobalSetup/Teardown failures
+    // When these fail, Mocha emits EVENT_RUN_END but WDIO doesn't listen to it
+    // So onRunnerEnd() is never called. We call our own onRunnerEnd() directly.
+    process.on('exit', () => {
+      // Only run once
+      if (this.exitHandlerRan) return;
+      this.exitHandlerRan = true;
+
+      // If we have buffered events, global fixture failed
+      if (this.bufferedEvents.length > 0) {
+        this.isFlushing = true;  // Prevent re-buffering
+
+        // Process must exit synchronously, so async onRunnerEnd() won't complete
+        // Instead, build result and write directly using parent's writer (which uses writeFileSync)
+        // @ts-ignore - accessing private property
+        const runtime = this._allureRuntime;
+        if (!runtime || !runtime.writer) {
+          return;
+        }
+
+        const __ts = getBufferedMinMaxTimes(this.bufferedEvents);
+        const uuid = require('crypto').randomUUID();
+
+        // Build Allure result structure from buffered events
+        const result: any = {
+          uuid,
+          historyId: 'mochaGlobalSetup',
+          name: 'Global fixture failure',
+          status: 'broken',
+          stage: 'finished',
+          start: __ts.start,
+          stop: __ts.stop,
+          labels: [
+            { name: 'tag', value: 'GlobalFixtureFailure' },
+            { name: 'parentSuite', value: '(global)' }
+          ],
+          statusDetails: {
+            message: 'mochaGlobalSetup/Teardown failed before tests could run',
+            trace: this.hookConsoleOutput || undefined
+          },
+          steps: [],
+          attachments: [],
+          parameters: [],
+          links: []
+        };
+
+        // Extract steps from buffered events
+        const stepStack: any[] = [];
+        for (const ev of this.bufferedEvents) {
+          if (ev.message.type === 'step_start') {
+            const step = {
+              name: ev.message.data.name || 'Step',
+              status: 'passed',
+              stage: 'finished',
+              start: ev.at,
+              stop: ev.at,
+              steps: [],
+              attachments: [],
+              parameters: []
+            };
+            if (stepStack.length > 0) {
+              stepStack[stepStack.length - 1].steps.push(step);
+            } else {
+              result.steps.push(step);
+            }
+            stepStack.push(step);
+          } else if (ev.message.type === 'step_stop') {
+            if (stepStack.length > 0) {
+              const step = stepStack.pop();
+              if (step && ev.message.data.stop) {
+                step.stop = ev.message.data.stop;
+              }
+            }
+          } else if (ev.message.type === 'attachment_content') {
+            const attachment = {
+              name: ev.message.data.name || 'Attachment',
+              source: `${uuid}-${ev.message.data.name || 'attachment'}.png`,
+              type: ev.message.data.contentType || 'image/png'
+            };
+            if (stepStack.length > 0) {
+              stepStack[stepStack.length - 1].attachments.push(attachment);
+            } else {
+              result.attachments.push(attachment);
+            }
+            // Write attachment file
+            if (ev.message.data.content) {
+              const content = Buffer.from(ev.message.data.content, ev.message.data.encoding || 'base64');
+              runtime.writer.writeAttachment(attachment.source, content);
+            }
+          }
+        }
+
+        // Write result synchronously
+        runtime.writer.writeResult(result);
+
+        this.clearBuffers();
+      }
+    });
 
     /*
      * Listen for all Allure runtime messages during hook execution
@@ -86,22 +195,37 @@ export default class AllureFailingHookReporter extends WDIOReporter {
      *  - We replay them later when we have a proper test/fixture container
      */
     process.on('allure:runtimeMessage', (payload) => {
-      if (!this.hasRealTestStarted && (this.inBeforeAll || this.inAfterAll)) {
+      // Don't buffer if we're currently flushing (prevents infinite loop)
+      if (this.isFlushing) return;
+
+      // Buffer events when nothing is active (global fixtures) or during beforeAll/afterAll
+      const nothingActive = this.activeSuites.size === 0 && this.activeHooks.size === 0 && this.activeTests.size === 0;
+      const inGlobalFixture = nothingActive && !this.hasRealTestStarted;
+
+      if (this.inBeforeAll || this.inAfterAll || inGlobalFixture) {
         this.bufferedEvents.push({ message: payload, at: Date.now() })
       }
     })
   }
 
-  async onTestStart(): Promise<void> {
-    /*
-     * Mark that a real test has started
-     * Hook console logs will be prepended automatically by the wrapper
-     * when it sees the first test output
-     */
-    this.hasRealTestStarted = true
+  onRunnerStart(runnerStats: any): void {
+    super.onRunnerStart(runnerStats);
   }
 
-  onHookStart(hook: unknown): void {
+  onSuiteStart(suiteStats: any): void {
+    this.activeSuites.add(suiteStats);
+    super.onSuiteStart(suiteStats);
+  }
+
+  onSuiteEnd(suiteStats: any): void {
+    this.activeSuites.delete(suiteStats);
+    super.onSuiteEnd(suiteStats);
+  }
+
+
+  onHookStart(hook: any): void {
+    this.activeHooks.add(hook);
+
     const h = hook as { title?: unknown; parent?: unknown; start?: number }
     const title = typeof h?.title === 'string' ? h.title : ''
 
@@ -127,6 +251,8 @@ export default class AllureFailingHookReporter extends WDIOReporter {
       this.inAfterAll = true
       this.hookSuiteTitle = suiteTitle
     }
+
+    super.onHookStart(hook);
   }
 
   private wrapStdout(): void {
@@ -145,9 +271,9 @@ export default class AllureFailingHookReporter extends WDIOReporter {
     ): boolean {
       const str = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8')
 
-      // Capture during hooks
-      if (self.inBeforeAll || self.inAfterAll) {
-        self.hookConsoleOutput += str
+      // Capture during hooks OR before any test starts (for mochaGlobalSetup)
+      if (self.inBeforeAll || self.inAfterAll || !self.hasRealTestStarted) {
+        self.hookConsoleOutput += str;
       }
 
       // Prepend hook logs when we see the FIRST test log (after hooks complete)
@@ -174,7 +300,9 @@ export default class AllureFailingHookReporter extends WDIOReporter {
   }
 
 
-  async onHookEnd(hook: unknown): Promise<void> {
+  async onHookEnd(hook: any): Promise<void> {
+    this.activeHooks.delete(hook);
+
     const h = hook as { title?: unknown; error?: unknown;
       parent?: unknown; start?: number; end?: number }
     const title = typeof h?.title === 'string' ? h.title : ''
@@ -243,12 +371,31 @@ export default class AllureFailingHookReporter extends WDIOReporter {
       })
       this.clearBuffers()
       this.hookConsoleOutput = ''
+      return
     }
+
+    super.onHookEnd(hook);
+  }
+
+  async onTestStart(testStats: any): Promise<void> {
+    this.activeTests.add(testStats);
+
+    this.hasRealTestStarted = true;
+    super.onTestStart(testStats);
+  }
+
+  onTestEnd(testStats: any): void {
+    this.activeTests.delete(testStats);
+    super.onTestEnd(testStats);
   }
 
   onAfterCommand(command: { command?: string; result?: unknown }): void {
+    // Capture screenshots from beforeAll/afterAll hooks or global fixtures
+    const nothingActive = this.activeSuites.size === 0 && this.activeHooks.size === 0 && this.activeTests.size === 0;
+    const inGlobalFixture = nothingActive && !this.hasRealTestStarted;
+
     if (this.hasRealTestStarted) return
-    if (!(this.inBeforeAll || this.inAfterAll)) return
+    if (!(this.inBeforeAll || this.inAfterAll || inGlobalFixture)) return
     if (command?.command !== 'takeScreenshot') return
 
     // Extract base64 from WDIO's result format: {value: "base64string"}
@@ -276,7 +423,50 @@ export default class AllureFailingHookReporter extends WDIOReporter {
     })
   }
 
-  async onRunnerEnd(): Promise<void> { return }
+  async onRunnerEnd(runnerStats?: any): Promise<void> {
+    // First, let parent process any queued messages
+    await super.onRunnerEnd(runnerStats);
+
+    // Then handle our buffered global fixture events
+    if (this.bufferedEvents.length > 0 && !this.hasRealTestStarted) {
+      const __ts = getBufferedMinMaxTimes(this.bufferedEvents);
+
+      // Create synthetic test entry (same pattern as onHookEnd)
+      this.emitRuntimeMessage('allure:test:start', {
+        name: 'Global fixture failure',
+        start: __ts.start
+      });
+
+      const labels = [
+        { name: 'tag', value: 'GlobalFixtureFailure' },
+        { name: 'parentSuite', value: '(global)' }
+      ];
+      this.emitRuntimeMessage('metadata', { labels });
+
+      // Replay all buffered evidence (steps, screenshots)
+      await this.flushBufferedEvents();
+
+      // Attach console output if captured
+      if (this.hookConsoleOutput.trim()) {
+        this.emitRuntimeMessage('attachment_content', {
+          name: 'Console Output',
+          content: Buffer.from(this.hookConsoleOutput).toString('base64'),
+          encoding: 'base64',
+          contentType: 'text/plain'
+        });
+      }
+
+      this.emitRuntimeMessage('allure:test:end', {
+        status: Status.BROKEN,
+        stage: Stage.FINISHED,
+        statusDetails: { message: 'Global fixture failed before tests could run' },
+        stop: __ts.stop
+      });
+
+      this.clearBuffers();
+      this.hookConsoleOutput = '';
+    }
+  }
 
   // ==================== Helper Methods ====================
 

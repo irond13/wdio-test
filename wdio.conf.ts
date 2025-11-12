@@ -36,8 +36,8 @@ export const config: WebdriverIO.Config = {
     ui: 'bdd',
     timeout: 60000,
     require: [
-      './test/support/rootSetup.ts',      // Global setup (once per worker)
-      './test/support/retryLogger.ts'     // Retry log level management
+      './test/support/rootSetup.ts',
+      './test/support/retryLogger.ts'
     ],
     retries: 1  // Global retry limit (can override per-test with this.retries(n))
   },
@@ -51,12 +51,10 @@ export const config: WebdriverIO.Config = {
 
   reporters: [
     'spec',
-    [AllureFailingHookReporter, {}],
     [
-      'allure',
+      AllureFailingHookReporter,
       {
         outputDir: 'allure-results',
-        // disableWebdriverStepsReporting: false,
         disableWebdriverScreenshotsReporting: false,
         addConsoleLogs: true
       }
