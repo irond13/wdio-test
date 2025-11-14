@@ -42,8 +42,9 @@ npm run allure:open
 | File | Purpose |
 |------|---------|
 | `AllureFailingHookReporter.ts` | Custom WDIO reporter that captures evidence from failing beforeAll/afterAll hooks and creates synthetic test entries in Allure |
-| `globalSetup.ts` | Mocha root hook plugin providing global beforeAll setup (navigates, takes screenshots) |
+| `rootSetup.ts` | Mocha `mochaGlobalSetup` implementation that runs once per worker, emits Allure steps/screenshots |
 | `retryLogger.ts` | Mocha root hook plugin that dynamically switches ALL WDIO loggers to DEBUG level during test retries, then restores original levels |
+| `validators/reportValidator.e2e.ts` | WDIO spec that regenerates the Allure single-file report, serves it, and validates buffered fixture evidence |
 
 ### Generated Folders
 
@@ -51,6 +52,8 @@ npm run allure:open
 |--------|---------|------------|
 | `allure-results/` | Raw JSON test results, screenshots, attachments | Yes |
 | `allure-report/` | Single HTML file report (index.html) with embedded assets | Yes |
+
+> Architecture deep dive: see `ARCHITECTURE_STATUS.md` for how the custom reporter buffers and replays mochaGlobalSetup evidence.
 
 ## Key Features Explained
 
@@ -107,7 +110,7 @@ WebdriverIO executes hooks before creating test contexts. Without this reporter,
 
 ### 3. Global Mocha Setup
 
-**Location:** `test/support/globalSetup.ts`
+**Location:** `test/support/rootSetup.ts`
 
 **What it does:**
 Provides a global beforeAll hook that runs once per worker process before any tests. Navigates to example.org and takes screenshots with Allure steps.
@@ -174,10 +177,23 @@ The scenario tests demonstrate hook execution at different levels:
 ```bash
 npm test                  # Run all tests (wdio.conf.ts)
 npm run wdio              # Same as npm test
+npm run clean:allure      # Remove allure-results/ and allure-report/
+npm run test:comprehensive # Full matrix of specs + validator (regenerates reports)
 npm run allure:generate   # Generate HTML report from results
 npm run allure:open       # Open report in browser
 npm run allure:serve      # Generate and serve in one command
+npm run allure:validate   # Sanity check allure-results + single-file report size
 ```
+### Allure Validator
+
+`test/validators/reportValidator.e2e.ts` is a WDIO spec that:
+
+1. Runs `allure generate --clean --single-file` to rebuild `allure-report/index.html`.
+2. Serves the report with `http-server` on a random localhost port.
+3. Navigates directly to each critical test (first success, suite/global hook failures) and expands all UI sections.
+4. Reads the embedded `data/test-cases/*.json` blobs (base64 inside the single-file HTML) to assert that “Global fixture failure” still carries the mochaGlobalSetup steps/screenshots.
+
+This spec runs automatically at the end of `npm run test:comprehensive`. Screenshots from the validator are saved under `screenshots/` (gitignored).
 
 ## Allure Workflow
 
