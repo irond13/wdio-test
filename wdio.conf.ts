@@ -1,5 +1,13 @@
 import AllureFailingHookReporter from './test/support/AllureFailingHookReporter'
 
+// Enable mochaGlobalSetup capture (can be disabled by explicitly setting env var)
+if (!('GLOBAL_SETUP_CAPTURE' in process.env)) {
+  process.env.GLOBAL_SETUP_CAPTURE = '1'
+}
+
+// Single source of truth for Allure output directory
+const ALLURE_RESULTS_DIR = process.env.ALLURE_RESULTS_DIR || 'allure-results'
+
 export const config: WebdriverIO.Config = {
   runner: 'local',
   specs: [
@@ -52,13 +60,14 @@ export const config: WebdriverIO.Config = {
   reporters: [
     'spec',
     [
-      AllureFailingHookReporter,
+      'allure',
       {
-        outputDir: 'allure-results',
+        outputDir: ALLURE_RESULTS_DIR,
         disableWebdriverScreenshotsReporting: false,
         addConsoleLogs: true
       }
-    ]
+    ],
+    [AllureFailingHookReporter, { outputDir: ALLURE_RESULTS_DIR }]
   ],
 
   tsConfigPath: './tsconfig.json'

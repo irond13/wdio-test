@@ -14,5 +14,5 @@
     "skipLibCheck": true,
     "types": ["node", "@wdio/types", "@wdio/globals/types", "mocha"]
   },
-  "include": ["wdio.conf.ts", "test/**/*.ts"]
+  "include": ["wdio.conf.ts", "test/**/*.ts", "types/**/*.d.ts"]
 }

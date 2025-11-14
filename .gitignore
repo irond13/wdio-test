@@ -1,6 +1,7 @@
 # Test results and reports
 allure-results/
 allure-report/
+allure-results-validator/
 
 # Dependencies
 node_modules/
@@ -12,6 +13,10 @@ node_modules/
 
 # Logs
 *.log
+
+# Runtime artifacts
+screenshots/
+allure-serve.pid
 
 # OS
 .DS_Store

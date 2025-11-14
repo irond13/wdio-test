@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "wdio run wdio.conf.ts",
-    "test:comprehensive": "rm -rf allure-results allure-report && wdio run wdio.conf.ts --spec ./test/specs/retryDemo.e2e.ts; wdio run wdio.conf.ts --spec ./test/specs/scenario1-allPass.e2e.ts; wdio run wdio.conf.ts --spec ./test/specs/scenario3-specFails.e2e.ts; wdio run wdio.conf.ts --spec ./test/specs/scenario4-suiteFails.e2e.ts; export GLOBAL_HOOK_FAIL=1 && wdio run wdio.conf.ts --spec ./test/specs/scenario2-globalFails.e2e.ts; npm run allure:generate && npm run allure:validate",
+    "clean:allure": "rm -rf allure-results allure-report",
+    "test:comprehensive": "npm run clean:allure && wdio run wdio.conf.ts --spec ./test/specs/retryDemo.e2e.ts; wdio run wdio.conf.ts --spec ./test/specs/scenario1-allPass.e2e.ts; wdio run wdio.conf.ts --spec ./test/specs/scenario3-specFails.e2e.ts; wdio run wdio.conf.ts --spec ./test/specs/scenario4-suiteFails.e2e.ts; export GLOBAL_HOOK_FAIL=1 && wdio run wdio.conf.ts --spec ./test/specs/scenario2-globalFails.e2e.ts; npm run allure:generate && npm run allure:validate",
     "allure:validate": "node -e \"const fs=require('fs');const results=fs.readdirSync('allure-results');const hasResults=results.some(f=>f.endsWith('-result.json'));const hasAttachments=results.some(f=>f.includes('attachment'));if(!hasResults)throw new Error('No test results');if(!hasAttachments)throw new Error('No attachments');const html=fs.readFileSync('allure-report/index.html','utf8');if(html.length<1000000)throw new Error('Report too small');console.log('✅ Report validated:',results.filter(f=>f.endsWith('-result.json')).length,'tests',results.filter(f=>f.includes('attachment')).length,'attachments')\"",
     "wdio": "wdio run wdio.conf.ts",
     "allure:generate": "allure generate --clean --single-file allure-results -o allure-report",
@@ -16,6 +17,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/http-server": "^0.12.4",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.10.0",
     "@wdio/allure-reporter": "^9.20.0",
@@ -27,6 +29,7 @@
     "@wdio/spec-reporter": "^9.20.0",
     "allure-commandline": "^2.34.1",
     "devtools": "^8.42.0",
+    "http-server": "^14.1.1",
     "loglevel": "^1.9.2",
     "mocha": "^11.7.5",
     "playwright": "^1.56.1",
